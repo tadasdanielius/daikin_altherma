@@ -1,0 +1,25 @@
+{
+  "config": {
+    "flow_title": "{manufacturer} {duty} {serial_number}",
+    "step": {
+      "user": {
+        "description": "Set up Daikin Altherma unit integration.",
+        "data": {
+          "host": "[%key:common::config_flow::data::host%]"
+        }
+      },
+      "zeroconf_confirm": {
+        "description": "Do you want to add the {manufacturer} {duty} with serial number {serial_number} to Home Assistant?",
+        "title": "Discovered Daikin Unit",
+        "data": {}
+      }
+    },
+    "error": {
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]"
+    },
+    "abort": {
+      "unsupported_model": "This device is already configured.",
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+    }
+  }
+}

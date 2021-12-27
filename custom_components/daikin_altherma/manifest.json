@@ -1,0 +1,13 @@
+{
+  "domain": "daikin_altherma",
+  "name": "Daikin Altherma HVAC",
+  "config_flow": true,
+  "documentation": "https://www.home-assistant.io/integrations/daikin_altherma",
+  "requirements": ["pyaltherma==0.0.11"],
+  "ssdp": [],
+  "zeroconf": ["_daikin._tcp.local."],
+  "homekit": {},
+  "codeowners": ["@tadasdanielius"],
+  "iot_class": "local_polling",
+  "version": "1.0.0"
+}
