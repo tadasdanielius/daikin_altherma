@@ -69,7 +69,7 @@ class DaikinAlthermaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_zeroconf(
         self, discovery_info: DiscoveryInfoType
     ) -> FlowResult:
-        self.host = discovery_info["host"]
+        self.host = discovery_info.host
         self._async_abort_entries_match({CONF_HOST: self.host})
         try:
             with timeout(TIMEOUT):
