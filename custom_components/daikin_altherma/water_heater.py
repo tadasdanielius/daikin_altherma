@@ -67,7 +67,7 @@ class AlthermaWaterHeater(WaterHeaterEntity, CoordinatorEntity):
 
     async def async_set_temperature(self, **kwargs):
         target_temperature = kwargs.get(ATTR_TEMPERATURE)
-        await self._api.device.hot_water_tank.set_target_temperature(target_temperature)
+        await self._api.device.hot_water_tank.set_domestic_hot_water_temperature_heating(target_temperature)
         await self.coordinator.async_request_refresh()
 
     async def async_set_operation_mode(self, operation_mode):
