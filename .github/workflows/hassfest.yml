@@ -1,0 +1,16 @@
+name: HassFest-Validate
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      note:
+        description: 'Note'
+
+jobs:
+  validate:
+    runs-on: "ubuntu-latest"
+    steps:
+        - uses: "actions/checkout@v2"
+        - uses: "home-assistant/actions/hassfest@master"
