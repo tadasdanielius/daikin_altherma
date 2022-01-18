@@ -67,7 +67,14 @@ class AlthermaWaterHeater(WaterHeaterEntity, CoordinatorEntity):
 
     async def async_set_temperature(self, **kwargs):
         target_temperature = kwargs.get(ATTR_TEMPERATURE)
-        await self._api.device.hot_water_tank.set_domestic_hot_water_temperature_heating(target_temperature)
+        device = self._api.device.hot_water_tank
+        # First try to set using DomesticHotWaterTemperatureHeating operation. If it is not settable then fallback
+        # to TargetTemperature
+        conf = device._unit.operation_config['DomesticHotWaterTemperatureHeating']
+        if 'settable' in conf and conf['settable'] is True:
+            await device.set_domestic_hot_water_temperature_heating(target_temperature)
+        else:
+            await device.set_target_temperature(target_temperature)
         await self.coordinator.async_request_refresh()
 
     async def async_set_operation_mode(self, operation_mode):
