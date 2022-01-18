@@ -1,0 +1,6 @@
+{
+  "name": "Integration for Daikin Altherma BRP069A62",
+  "domains": ["number", "select", "sensor", "switch", "water_heater"],
+  "render_readme": true,
+  "iot_class": ["Local Polling"]
+}
