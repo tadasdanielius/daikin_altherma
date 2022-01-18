@@ -55,3 +55,8 @@ This integration allows to control the following options
 ![Daikin Altherma space heating and domestic hot water](img/ha_altherma1.png)
 
 ![Domestic hot water control](img/ha_altherma2.png)
+
+
+
+
+<a href="https://www.buymeacoffee.com/buymeacoff7" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-black.png" width="150px" height="35px" alt="Buy Me A Coffee" style="height: 35px !important;width: 150px !important;" ></a>
