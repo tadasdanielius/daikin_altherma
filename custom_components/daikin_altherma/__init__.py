@@ -217,6 +217,10 @@ class AlthermaAPI:
         Normally it should have the maximum, minimum and step numbers
         @rtype: dict
         """
+
+        if "DomesticHotWaterTemperatureHeating" in self.device.hot_water_tank._unit.operation_config:
+            return self.device.hot_water_tank._unit.operation_config["DomesticHotWaterTemperatureHeating"]
+
         return self.device.hot_water_tank._unit.operation_config["TargetTemperature"][
             "heating"
         ]
