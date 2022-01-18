@@ -11,9 +11,9 @@ You can install manually or by using [HACS](https://hacs.xyz/) (the easier way).
 ## HACS
 
 1. Go to `HACS > Integrations`
-2. Add custom repository ![adding custom repository](img/HACS1.png)
+2. Add custom repository ![adding custom repository](https://raw.githubusercontent.com/tadasdanielius/daikin_altherma/main/img/HACS1.png)
 3. Fill the details. In repository field enter [https://github.com/tadasdanielius/daikin_altherma](https://github.com/tadasdanielius/daikin_altherma) and from category choose `Integration`
-![Details](img/HACS2.png)
+![Details](https://raw.githubusercontent.com/tadasdanielius/daikin_altherma/main/img/HACS2.png)
 
 
 ## Manual installation
@@ -52,9 +52,9 @@ This integration allows to control the following options
 
 ## Screenshots
 
-![Daikin Altherma space heating and domestic hot water](img/ha_altherma1.png)
+![Daikin Altherma space heating and domestic hot water](https://raw.githubusercontent.com/tadasdanielius/daikin_altherma/main/img/ha_altherma1.png)
 
-![Domestic hot water control](img/ha_altherma2.png)
+![Domestic hot water control](https://raw.githubusercontent.com/tadasdanielius/daikin_altherma/main/img/ha_altherma2.png)
 
 
 
