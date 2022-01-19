@@ -56,7 +56,31 @@ This integration allows to control the following options
 
 ![Domestic hot water control](https://raw.githubusercontent.com/tadasdanielius/daikin_altherma/main/img/ha_altherma2.png)
 
+# Climate control component
 
+Normally you can control leaving water temperature which but not the room temperature and usally is either larger or lower (if cooling is turned on). So, in order to have thermostat type control you can use [generic thermostat](https://www.home-assistant.io/integrations/generic_thermostat/) with the integration
+
+Put this into your `configuration.yaml`:
+
+```yaml
+climate:
+  - platform: generic_thermostat
+    name: My Heater
+    unique_id: daikin_climate_control
+    target_sensor: sensor.indoor_temperature
+    min_temp: 18
+    max_temp: 26
+    heater: switch.climate_control
+    target_temp: 20
+    cold_tolerance: 0.3
+    hot_tolerance: 0.3
+    ac_mode: false
+    initial_hvac_mode: "heat"
+    min_cycle_duration:
+      seconds: 5
+``` 
+
+`target_sensor` can be any temperature sensor. 
 
 
 <a href="https://www.buymeacoffee.com/buymeacoff7" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-black.png" width="150px" height="35px" alt="Buy Me A Coffee" style="height: 35px !important;width: 150px !important;" ></a>
