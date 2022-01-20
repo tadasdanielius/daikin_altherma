@@ -91,6 +91,7 @@ class AlthermaAPI:
 
         self._climate_control_powered = False
         self._failed_updates = 0
+        self._type_error_failure = 0
 
     async def turn_on_climate_control(self):
         await self._device.climate_control.turn_on()
@@ -144,6 +145,12 @@ class AlthermaAPI:
             await self.device.ws_connection.close()
             self._available = True
             self._failed_updates = 0
+            self._type_error_failure = 0
+        except TypeError as e:
+            # Report only once
+            self._type_error_failure += 1
+            if self._type_error_failure < 2:
+                _LOGGER.error(f'Failed to update the device status with error {e}', e)
         except ClientConnectionError:
             _LOGGER.warning("Connection failed for %s", self.ip_address)
             self._failed_updates += 1
