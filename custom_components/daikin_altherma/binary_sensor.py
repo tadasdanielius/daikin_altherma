@@ -57,12 +57,14 @@ class AlthermaUnitProblemSensor(BinarySensorEntity, CoordinatorEntity):
     def _is_problem_state(self):
         unit_status = self._api.status[f'function/{self._unit_ref}']
         states = unit_status['states'].copy()
-        max_sum_value = 0
+        #max_sum_value = 0
         # Not a problem if we are in weather dependent state
+        #if 'WeatherDependentState' in states and states['WeatherDependentState'] is True:
+        #    max_sum_value = 1
         if 'WeatherDependentState' in states:
-            max_sum_value = 1
+            del states['WeatherDependentState']
         values = list(states.values())
-        return sum(values) > max_sum_value
+        return sum(values) > 0
 
     @property
     def extra_state_attributes(self):

@@ -135,13 +135,33 @@ class AlthermaAPI:
         await self.get_HWT_device_info()
         await self.get_space_heating_device_info()
         await self._device.ws_connection.close()
+    
+    def get_state(self, state_key):
+        if self.status is not None:
+            state = False
+            dhw_states = self.status['function/DomesticHotWaterTank']['states']
+            sh_states = self.status['function/SpaceHeating']['states']
+            if 'InstallerState' in dhw_states:
+                state = state | dhw_states['InstallerState']
+            if 'InstallerState' in sh_states:
+                state = state | sh_states['InstallerState']
+            return state
+        return None
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self, **kwargs):
         """Pull the latest data from Daikin."""
         try:
+            prev_installer_state = self.get_state('InstallerState')
             self._status = await self.device.get_current_state()
             self._climate_control_powered = await self._device.climate_control.is_turned_on
+            installer_state = self.get_state('InstallerState')
+            if prev_installer_state is not None and prev_installer_state != installer_state and installer_state is False:
+                # Leaving installer mode can have changes which are not currently refreshed properly
+                # For example from fixed temperature to weather dependent are read from profile during initialization
+                # and it should update the profile after installer state
+                _LOGGER.warning('Unit left installer state. If there are heavy changes it is probably better to reload integration. Currently it may not fully incorporate new settings.')
+
             await self.device.ws_connection.close()
             self._available = True
             self._failed_updates = 0
