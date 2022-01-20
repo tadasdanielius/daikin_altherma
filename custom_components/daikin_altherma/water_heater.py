@@ -1,5 +1,4 @@
 import logging
-
 from homeassistant.components.water_heater import (
     STATE_OFF,
     STATE_ON,

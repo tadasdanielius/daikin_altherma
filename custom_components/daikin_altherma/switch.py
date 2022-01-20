@@ -1,5 +1,4 @@
 import logging
-
 from homeassistant.components.switch import SwitchEntity, DEVICE_CLASS_SWITCH
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,

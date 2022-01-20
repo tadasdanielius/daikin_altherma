@@ -1,5 +1,4 @@
 import logging
-
 from homeassistant.components.number import NumberEntity
 from homeassistant.const import TEMP_CELSIUS
 from homeassistant.helpers.update_coordinator import (

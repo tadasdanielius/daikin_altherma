@@ -1,11 +1,10 @@
 """The Daikin Altherma integration."""
 from __future__ import annotations
 
-import logging
-from datetime import timedelta
-
 import async_timeout
+import logging
 from aiohttp import ClientConnectionError
+from datetime import timedelta
 from homeassistant.components.water_heater import STATE_OFF, STATE_ON, STATE_PERFORMANCE
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
@@ -135,7 +134,7 @@ class AlthermaAPI:
         await self.get_HWT_device_info()
         await self.get_space_heating_device_info()
         await self._device.ws_connection.close()
-    
+
     def get_state(self, state_key):
         if self.status is not None:
             state = False
@@ -160,7 +159,8 @@ class AlthermaAPI:
                 # Leaving installer mode can have changes which are not currently refreshed properly
                 # For example from fixed temperature to weather dependent are read from profile during initialization
                 # and it should update the profile after installer state
-                _LOGGER.warning('Unit left installer state. If there are heavy changes it is probably better to reload integration. Currently it may not fully incorporate new settings.')
+                _LOGGER.warning(
+                    'Unit left installer state. If there are heavy changes it is probably better to reload integration. Currently it may not fully incorporate new settings.')
 
             await self.device.ws_connection.close()
             self._available = True

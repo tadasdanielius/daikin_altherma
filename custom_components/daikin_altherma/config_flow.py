@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
-
 import voluptuous as vol
 from aiohttp import ClientError
 from async_timeout import timeout
@@ -15,6 +13,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.typing import DiscoveryInfoType
 from pyaltherma.comm import DaikinWSConnection
 from pyaltherma.controllers import AlthermaController
+from typing import Any
 
 from .const import DOMAIN, TIMEOUT
 

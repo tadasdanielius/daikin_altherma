@@ -1,5 +1,4 @@
 import logging
-
 from homeassistant.components.sensor import SensorEntity, DEVICE_CLASS_TEMPERATURE
 from homeassistant.const import TEMP_CELSIUS
 from homeassistant.helpers.typing import StateType
