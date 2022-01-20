@@ -66,9 +66,12 @@ class AlthermaWaterHeater(WaterHeaterEntity, CoordinatorEntity):
         return False
 
     @property
-    def _supported_features(self):
-        result = SUPPORT_FLAGS_HEATER if self._is_settable_target_temp() else SUPPORT_OPERATION_MODE
-        return result
+    def supported_features(self):
+        states = self._api.status[f"function/DomesticHotWaterTank"]['states']
+        if 'WeatherDependentState' in states:
+            if states['WeatherDependentState']:
+                return SUPPORT_OPERATION_MODE
+        return SUPPORT_FLAGS_HEATER
 
     @property
     def target_temperature(self) -> float:
