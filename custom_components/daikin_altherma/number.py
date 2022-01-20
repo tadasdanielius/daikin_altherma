@@ -1,14 +1,11 @@
 import logging
-from datetime import timedelta
-
-import async_timeout
-from pyaltherma.const import ClimateControlMode
 
 from homeassistant.components.number import NumberEntity
+from homeassistant.const import TEMP_CELSIUS
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
-    DataUpdateCoordinator,
 )
+from pyaltherma.const import ClimateControlMode
 
 from . import DOMAIN, AlthermaAPI
 
@@ -19,21 +16,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Daikin climate based on config_entry."""
     api = hass.data[DOMAIN].get(entry.entry_id)
 
-    async def async_update_data():
-        try:
-            async with async_timeout.timeout(10):
-                await api.async_update()
-        except:
-            raise
-
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name="daikin_space_heating_mode",
-        update_method=async_update_data,
-        update_interval=timedelta(seconds=30),
-    )
-    await coordinator.async_config_entry_first_refresh()
+    coordinator = hass.data[DOMAIN]['coordinator']
     async_add_entities([
         AlthermaUnitTemperatureControl(coordinator, api)
     ], update_before_add=False)
@@ -49,6 +32,7 @@ class AlthermaUnitTemperatureControl(NumberEntity, CoordinatorEntity):
         self._attr_unique_id = f"{self._api.info['serial_number']}-SpaceHeating-temp-control"
         self._attr_options = [x.value for x in list(ClimateControlMode)]
         self._attr_icon = 'mdi:sun-thermometer-outline'
+        self._attr_native_unit_of_measurement = TEMP_CELSIUS
 
     @property
     def value(self) -> float:
@@ -100,3 +84,7 @@ class AlthermaUnitTemperatureControl(NumberEntity, CoordinatorEntity):
 
     async def async_update(self):
         await self._api.async_update()
+
+    @property
+    def mode(self) -> str:
+        return 'box'
