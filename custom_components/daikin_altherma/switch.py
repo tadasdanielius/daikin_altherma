@@ -1,11 +1,8 @@
 import logging
-from datetime import timedelta
 
-import async_timeout
 from homeassistant.components.switch import SwitchEntity, DEVICE_CLASS_SWITCH
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
-    DataUpdateCoordinator,
 )
 
 from . import DOMAIN, AlthermaAPI
@@ -16,22 +13,7 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Daikin climate based on config_entry."""
     api = hass.data[DOMAIN].get(entry.entry_id)
-
-    async def async_update_data():
-        try:
-            async with async_timeout.timeout(10):
-                await api.async_update()
-        except:
-            raise
-
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name="daikin_space_heating_power",
-        update_method=async_update_data,
-        update_interval=timedelta(seconds=30),
-    )
-    await coordinator.async_config_entry_first_refresh()
+    coordinator = hass.data[DOMAIN]['coordinator']
     async_add_entities([
         AlthermaUnitPowerSwitch(coordinator, api)
     ], update_before_add=False)
@@ -82,3 +64,7 @@ class AlthermaUnitPowerSwitch(SwitchEntity, CoordinatorEntity):
 
     async def async_update(self):
         await self._api.async_update()
+
+    @property
+    def extra_state_attributes(self):
+        return self._api.status["function/SpaceHeating"]['states']

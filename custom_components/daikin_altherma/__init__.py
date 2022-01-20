@@ -1,24 +1,26 @@
 """The Daikin Altherma integration."""
 from __future__ import annotations
 
-from datetime import timedelta
 import logging
+from datetime import timedelta
 
+import async_timeout
 from aiohttp import ClientConnectionError
-from pyaltherma.comm import DaikinWSConnection
-from pyaltherma.controllers import AlthermaController
-
 from homeassistant.components.water_heater import STATE_OFF, STATE_ON, STATE_PERFORMANCE
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import Throttle
+from pyaltherma.comm import DaikinWSConnection
+from pyaltherma.controllers import AlthermaController
 
-from .const import DOMAIN
+from .const import DOMAIN, MIN_TIME_BETWEEN_UPDATES_SECONDS, UPDATE_INTERVAL_SECONDS, ASYNC_UPDATE_TIMEOUT_SECONDS, \
+    MAX_UPDATE_FAILED
 
-PLATFORMS = ["water_heater", "sensor", "switch", "select", "number"]
-MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=10)
+PLATFORMS = ["water_heater", "sensor", "switch", "select", "number", "binary_sensor"]
+MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=MIN_TIME_BETWEEN_UPDATES_SECONDS)
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -32,6 +34,19 @@ async def setup_api_instance(hass, host):
     return api
 
 
+def create_update_function(api):
+    _api = api
+
+    async def async_update_data():
+        try:
+            async with async_timeout.timeout(ASYNC_UPDATE_TIMEOUT_SECONDS):
+                await _api.async_update()
+        except:
+            raise
+
+    return async_update_data
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Daikin Altherma from a config entry."""
     conf = entry.data
@@ -40,7 +55,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass, conf[CONF_HOST]
     )
     hass.data[DOMAIN][entry.entry_id] = api
-
+    coordinator = DataUpdateCoordinator(
+        hass,
+        _LOGGER,
+        name="daikin_altherma_coordinator",
+        update_method=create_update_function(api),
+        update_interval=timedelta(seconds=UPDATE_INTERVAL_SECONDS),
+    )
+    await coordinator.async_refresh()
+    hass.data[DOMAIN]['coordinator'] = coordinator
     hass.config_entries.async_setup_platforms(entry, PLATFORMS)
 
     return True
@@ -67,6 +90,7 @@ class AlthermaAPI:
         self._space_heating_device_info = None
 
         self._climate_control_powered = False
+        self._failed_updates = 0
 
     async def turn_on_climate_control(self):
         await self._device.climate_control.turn_on()
@@ -119,9 +143,16 @@ class AlthermaAPI:
             self._climate_control_powered = await self._device.climate_control.is_turned_on
             await self.device.ws_connection.close()
             self._available = True
+            self._failed_updates = 0
         except ClientConnectionError:
             _LOGGER.warning("Connection failed for %s", self.ip_address)
-            self._available = False
+            self._failed_updates += 1
+            if self._failed_updates > MAX_UPDATE_FAILED > 0:
+                _LOGGER.error(f'Too many failed updates. Making component unavailable.')
+                self._available = False
+            # Report only once
+            if self._failed_updates == 1:
+                _LOGGER.error(f'Failed update status from heat-pump.')
 
     @property
     def available(self) -> bool:

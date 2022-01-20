@@ -1,7 +1,4 @@
-from datetime import timedelta
 import logging
-
-import async_timeout
 
 from homeassistant.components.water_heater import (
     STATE_OFF,
@@ -14,7 +11,6 @@ from homeassistant.components.water_heater import (
 from homeassistant.const import ATTR_TEMPERATURE, TEMP_CELSIUS
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
-    DataUpdateCoordinator,
 )
 
 from . import DOMAIN, AlthermaAPI
@@ -29,22 +25,7 @@ SUPPORT_FLAGS_HEATER = SUPPORT_TARGET_TEMPERATURE | SUPPORT_OPERATION_MODE
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Daikin climate based on config_entry."""
     api = hass.data[DOMAIN].get(entry.entry_id)
-
-    async def async_update_data():
-        try:
-            async with async_timeout.timeout(10):
-                await api.async_update()
-        except:
-            raise
-
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name="daikin_heatpump",
-        update_method=async_update_data,
-        update_interval=timedelta(seconds=30),
-    )
-    await coordinator.async_config_entry_first_refresh()
+    coordinator = hass.data[DOMAIN]['coordinator']
     async_add_entities([AlthermaWaterHeater(coordinator, api)], update_before_add=False)
 
 
@@ -68,24 +49,33 @@ class AlthermaWaterHeater(WaterHeaterEntity, CoordinatorEntity):
     async def async_set_temperature(self, **kwargs):
         target_temperature = kwargs.get(ATTR_TEMPERATURE)
         device = self._api.device.hot_water_tank
-        # First try to set using DomesticHotWaterTemperatureHeating operation. If it is not settable then fallback
-        # to TargetTemperature
-        conf = device._unit.operation_config['DomesticHotWaterTemperatureHeating']
-        if 'settable' in conf and conf['settable'] is True:
+        if self._is_settable_target_temp():
             await device.set_domestic_hot_water_temperature_heating(target_temperature)
-        else:
-            await device.set_target_temperature(target_temperature)
+
         await self.coordinator.async_request_refresh()
 
     async def async_set_operation_mode(self, operation_mode):
         await self._api.async_set_water_tank_state(operation_mode)
         await self.coordinator.async_request_refresh()
 
+    def _is_settable_target_temp(self):
+        device = self._api.device.hot_water_tank
+        conf = device._unit.operation_config['DomesticHotWaterTemperatureHeating']
+        if 'settable' in conf:
+            return conf['settable']
+        return False
+
+    @property
+    def _supported_features(self):
+        result = SUPPORT_FLAGS_HEATER if self._is_settable_target_temp() else SUPPORT_OPERATION_MODE
+        return result
+
     @property
     def target_temperature(self) -> float:
         target_temperature = self._api.status["function/DomesticHotWaterTank"][
             "operations"
         ]["TargetTemperature"]
+
         return target_temperature
 
     @property

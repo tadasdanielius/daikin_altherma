@@ -6,16 +6,15 @@ import asyncio
 import logging
 from typing import Any
 
+import voluptuous as vol
 from aiohttp import ClientError
 from async_timeout import timeout
-from pyaltherma.comm import DaikinWSConnection
-from pyaltherma.controllers import AlthermaController
-import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.typing import DiscoveryInfoType
+from pyaltherma.comm import DaikinWSConnection
+from pyaltherma.controllers import AlthermaController
 
 from .const import DOMAIN, TIMEOUT
 
@@ -39,7 +38,7 @@ class DaikinAlthermaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
+            self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         errors = {}
         if user_input is not None:
@@ -67,7 +66,7 @@ class DaikinAlthermaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_zeroconf(
-        self, discovery_info: DiscoveryInfoType
+            self, discovery_info: DiscoveryInfoType
     ) -> FlowResult:
         self.host = discovery_info.host
         self._async_abort_entries_match({CONF_HOST: self.host})
@@ -90,7 +89,7 @@ class DaikinAlthermaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return await self.async_step_zeroconf_confirm()
 
     async def async_step_zeroconf_confirm(
-        self, user_input: dict[str, Any] | None = None
+            self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         if user_input is not None:
             title = f"{self.device_info['manufacturer']} {self.device_info['duty']} ({self.device_info['serial_number']})"

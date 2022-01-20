@@ -1,14 +1,10 @@
 import logging
-from datetime import timedelta
-
-import async_timeout
-from pyaltherma.const import ClimateControlMode
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
-    DataUpdateCoordinator,
 )
+from pyaltherma.const import ClimateControlMode
 
 from . import DOMAIN, AlthermaAPI
 
@@ -19,21 +15,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Daikin climate based on config_entry."""
     api = hass.data[DOMAIN].get(entry.entry_id)
 
-    async def async_update_data():
-        try:
-            async with async_timeout.timeout(10):
-                await api.async_update()
-        except:
-            raise
-
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name="daikin_space_heating_mode",
-        update_method=async_update_data,
-        update_interval=timedelta(seconds=30),
-    )
-    await coordinator.async_config_entry_first_refresh()
+    coordinator = hass.data[DOMAIN]['coordinator']
     async_add_entities([
         AlthermaUnitOperationMode(coordinator, api)
     ], update_before_add=False)
