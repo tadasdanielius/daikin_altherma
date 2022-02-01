@@ -138,14 +138,23 @@ class AlthermaAPI:
     def get_state(self, state_key):
         if self.status is not None:
             state = False
-            dhw_states = self.status['function/DomesticHotWaterTank']['states']
-            sh_states = self.status['function/SpaceHeating']['states']
-            if 'InstallerState' in dhw_states:
-                state = state | dhw_states['InstallerState']
-            if 'InstallerState' in sh_states:
-                state = state | sh_states['InstallerState']
+            if 'function/DomesticHotWaterTank' in self.status:
+                dhw_states = self.status['function/DomesticHotWaterTank']['states']
+                if 'InstallerState' in dhw_states:
+                    state = state | dhw_states['InstallerState']
+            else:
+                state = False
+                
+            if 'function/SpaceHeating' in self.status:
+                sh_states = self.status['function/SpaceHeating']['states']
+                if 'InstallerState' in sh_states:
+                    state = state | sh_states['InstallerState']
+            
             return state
         return None
+
+    async def refresh_unit(self):
+        self.device.refresh()
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self, **kwargs):
@@ -156,11 +165,13 @@ class AlthermaAPI:
             self._climate_control_powered = await self._device.climate_control.is_turned_on
             installer_state = self.get_state('InstallerState')
             if prev_installer_state is not None and prev_installer_state != installer_state and installer_state is False:
-                # Leaving installer mode can have changes which are not currently refreshed properly
+                # Leaving installer mode can have changes which may not be refreshed properly
                 # For example from fixed temperature to weather dependent are read from profile during initialization
                 # and it should update the profile after installer state
                 _LOGGER.warning(
                     'Unit left installer state. If there are heavy changes it is probably better to reload integration. Currently it may not fully incorporate new settings.')
+                
+                await self.refresh_unit()
 
             await self.device.ws_connection.close()
             self._available = True
@@ -201,6 +212,9 @@ class AlthermaAPI:
     async def get_HWT_device_info(self) -> DeviceInfo:
         if self._hwt_device_info is None:
             hwt = self.device.hot_water_tank
+            if hwt is None:
+                return None
+            
             self._hwt_device_info = DeviceInfo(
                 **{
                     "identifiers": {(DOMAIN, f"{self._info['serial_number']} Hot Water Tank")},
@@ -216,6 +230,9 @@ class AlthermaAPI:
     async def get_space_heating_device_info(self) -> DeviceInfo:
         if self._space_heating_device_info is None:
             space_heating = self.device.climate_control
+            if space_heating is None:
+                return None
+            
             self._space_heating_device_info = DeviceInfo(
                 **{
                     "identifiers": {(DOMAIN, f"{self._info['serial_number']} Space Heating")},
