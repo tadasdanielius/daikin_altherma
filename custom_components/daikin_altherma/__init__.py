@@ -154,7 +154,7 @@ class AlthermaAPI:
         return None
 
     async def refresh_unit(self):
-        self.device.refresh()
+        await self.device.refresh()
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self, **kwargs):
