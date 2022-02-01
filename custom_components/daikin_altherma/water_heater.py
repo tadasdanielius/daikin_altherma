@@ -24,8 +24,11 @@ SUPPORT_FLAGS_HEATER = SUPPORT_TARGET_TEMPERATURE | SUPPORT_OPERATION_MODE
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Daikin climate based on config_entry."""
     api = hass.data[DOMAIN].get(entry.entry_id)
-    coordinator = hass.data[DOMAIN]['coordinator']
-    async_add_entities([AlthermaWaterHeater(coordinator, api)], update_before_add=False)
+    if api.HWT_device_info is not None:
+        coordinator = hass.data[DOMAIN]['coordinator']
+        async_add_entities([AlthermaWaterHeater(coordinator, api)], update_before_add=False)
+    else:
+        _LOGGER.warning(f'Cannot find daikin hot water tank unit.')
 
 
 class AlthermaWaterHeater(WaterHeaterEntity, CoordinatorEntity):

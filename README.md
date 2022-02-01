@@ -11,9 +11,8 @@ You can install manually or by using [HACS](https://hacs.xyz/) (the easier way).
 ## HACS
 
 1. Go to `HACS > Integrations`
-2. Add custom repository ![adding custom repository](https://raw.githubusercontent.com/tadasdanielius/daikin_altherma/main/img/HACS1.png)
-3. Fill the details. In repository field enter [https://github.com/tadasdanielius/daikin_altherma](https://github.com/tadasdanielius/daikin_altherma) and from category choose `Integration`
-![Details](https://raw.githubusercontent.com/tadasdanielius/daikin_altherma/main/img/HACS2.png)
+2. Press `+ explore and & download repositories`
+3. Search for `Daikin Altherma`
 
 
 ## Manual installation
@@ -58,7 +57,8 @@ This integration allows to control the following options
 
 # Climate control component
 
-Normally you can control leaving water temperature which but not the room temperature and usally is either larger or lower (if cooling is turned on). So, in order to have thermostat type control you can use [generic thermostat](https://www.home-assistant.io/integrations/generic_thermostat/) with the integration
+Daikin device allows to control leaving water temperature which is not what you expect your room temperature to be it is either higher or lower (if cooling is turned on). 
+So, in order to have thermostat type control you can use [generic thermostat](https://www.home-assistant.io/integrations/generic_thermostat/) with the integration
 
 Put this into your `configuration.yaml`:
 

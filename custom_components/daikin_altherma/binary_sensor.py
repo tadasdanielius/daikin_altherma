@@ -13,18 +13,20 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Daikin climate based on config_entry."""
     api = hass.data[DOMAIN].get(entry.entry_id)
     coordinator = hass.data[DOMAIN]['coordinator']
-    async_add_entities([
-        AlthermaUnitProblemSensor(
+    entities = []
+    if api.space_heating_device_info is not None:
+        entities.append(AlthermaUnitProblemSensor(
             coordinator, api, 'Space Heating Unit State',
             api.space_heating_device_info,
-            'SpaceHeating'
-        ),
-        AlthermaUnitProblemSensor(
+            'SpaceHeating'))
+
+    if api.HWT_device_info is not None:
+        entities.append(AlthermaUnitProblemSensor(
             coordinator, api, 'Hot Water Tank State',
             api.HWT_device_info,
             'DomesticHotWaterTank'
-        )
-    ], update_before_add=False)
+        ))
+    async_add_entities(entities, update_before_add=False)
 
 
 class AlthermaUnitProblemSensor(BinarySensorEntity, CoordinatorEntity):
