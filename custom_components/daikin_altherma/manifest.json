@@ -5,7 +5,7 @@
   "documentation": "https://github.com/tadasdanielius/daikin_altherma",
   "issue_tracker": "https://github.com/tadasdanielius/daikin_altherma/issues",
   "requirements": [
-    "pyaltherma==0.0.14"
+    "pyaltherma==0.0.17"
   ],
   "ssdp": [],
   "zeroconf": [
