@@ -55,6 +55,8 @@ This integration allows to control the following options
 
 ![Domestic hot water control](https://raw.githubusercontent.com/tadasdanielius/daikin_altherma/main/img/ha_altherma2.png)
 
+![Energy Consumption](https://github.com/tadasdanielius/daikin_altherma/blob/main/img/HA_energy_consumption_sensor.png)
+
 # Climate control component
 
 Daikin device allows to control leaving water temperature which is not what you expect your room temperature to be it is either higher or lower (if cooling is turned on). 
