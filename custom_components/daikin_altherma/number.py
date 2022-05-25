@@ -75,7 +75,7 @@ class AlthermaUnitTemperatureControl(NumberEntity, CoordinatorEntity):
     async def async_set_value(self, value: float) -> None:
         key, _ = self._get_value_config()
         await self._api.device.climate_control.call_operation(key, int(value))
-        await self.coordinator.async_refresh()
+        await self.coordinator.async_request_refresh()
 
     @property
     def device_info(self):

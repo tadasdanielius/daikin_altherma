@@ -41,7 +41,7 @@ class AlthermaUnitOperationMode(SelectEntity, CoordinatorEntity):
     async def async_select_option(self, option: str) -> None:
         new_op = ClimateControlMode(option)
         await self._api.device.climate_control.set_operation_mode(new_op)
-        await self.coordinator.async_refresh()
+        await self.coordinator.async_request_refresh()
 
     @property
     def device_info(self):
