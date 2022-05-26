@@ -1,6 +1,4 @@
 {
   "name": "Daikin Altherma",
-  "domains": ["number", "select", "sensor", "switch", "water_heater"],
-  "render_readme": true,
-  "iot_class": ["Local Polling"]
+  "render_readme": true
 }
