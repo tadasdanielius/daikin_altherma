@@ -15,11 +15,29 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Daikin climate based on config_entry."""
     api = hass.data[DOMAIN].get(entry.entry_id)
     coordinator = hass.data[DOMAIN]['coordinator']
-    entities = [
-        AlthermaUnitSensor(coordinator, api, 'LeavingWaterTemperatureCurrent', 'Leaving Water Temperature'),
-        AlthermaUnitSensor(coordinator, api, 'IndoorTemperature', 'Indoor Temperature'),
-        AlthermaUnitSensor(coordinator, api, 'OutdoorTemperature', 'Outdoor Temperature')
-    ]
+    translation = {
+        'LeavingWaterTemperatureCurrent': 'Leaving Water Temperature',
+        'IndoorTemperature': 'Indoor Temperature',
+        'OutdoorTemperature': 'Outdoor Temperature'
+    }
+    device = api.device
+    entities = []
+    if device is not None and device.climate_control is not None:
+        sensors = device.climate_control.sensors
+        for sensor in sensors:
+            if sensor in translation:
+                name = translation[sensor]
+            else:
+                name = sensor
+            entities.append(
+                AlthermaUnitSensor(coordinator, api, sensor, name)
+            )
+
+    #entities = [
+    #    AlthermaUnitSensor(coordinator, api, 'LeavingWaterTemperatureCurrent', 'Leaving Water Temperature'),
+    #    AlthermaUnitSensor(coordinator, api, 'IndoorTemperature', 'Indoor Temperature'),
+    #    AlthermaUnitSensor(coordinator, api, 'OutdoorTemperature', 'Outdoor Temperature')
+    #]
     try:
         device = api.device
         # Electrical -> (Heating/Cooling) -> (D, W, M)

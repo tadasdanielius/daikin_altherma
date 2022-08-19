@@ -16,9 +16,101 @@ async def async_setup_entry(hass, entry, async_add_entities):
     api = hass.data[DOMAIN].get(entry.entry_id)
 
     coordinator = hass.data[DOMAIN]['coordinator']
-    async_add_entities([
-        AlthermaUnitTemperatureControl(coordinator, api)
-    ], update_before_add=False)
+    entities = []
+    device = api.device
+    climate_control = device.climate_control
+    if climate_control is not None:
+        unit = climate_control.unit
+        if unit is not None:
+            operations = unit.operations
+            if 'LeavingWaterTemperatureOffsetHeating' in operations or \
+                    'LeavingWaterTemperatureOffsetCooling' in operations or \
+                    'LeavingWaterTemperatureOffsetAuto' in operations:
+                _LOGGER.warning(f'Added Leaving water')
+                entities.append(AlthermaUnitTemperatureControl(coordinator, api))
+            if 'TargetTemperatureDay' in operations:
+                profile = operations['TargetTemperatureDay']
+                if type(profile) is dict:
+                    _LOGGER.warning(f'Added Target Temperature Day')
+                    entities.append(
+                        GenericOperationControl(
+                            coordinator, api, 'Target Temperature Day', 'TargetTemperatureDay', profile)
+                    )
+                else:
+                    _LOGGER.error(f'Profile (TargetTemperatureDay) is not dictionary!')
+
+            if 'TargetTemperatureNight' in operations:
+                profile = operations['TargetTemperatureNight']
+                if type(profile) is dict:
+                    _LOGGER.warning('Added Target Temperature Night')
+                    entities.append(
+                        GenericOperationControl(
+                            coordinator, api, 'Target Temperature Night', 'TargetTemperatureNight', profile)
+                    )
+                else:
+                    _LOGGER.error(f'Profile (TargetTemperatureNight) is not dictionary!')
+
+    #async_add_entities([
+    #    AlthermaUnitTemperatureControl(coordinator, api)
+    #], update_before_add=False)
+    async_add_entities(entities, update_before_add=False)
+
+
+class GenericOperationControl(NumberEntity, CoordinatorEntity):
+    def __init__(self, coordinator, api: AlthermaAPI, name: str, operation: str, profile):
+        super().__init__(coordinator)
+        self._api = api
+        self._operation = operation
+        self._profile = profile
+        self._attr_name = name
+        self._attr_device_info = api.space_heating_device_info
+        self._attr_unique_id = f"{self._api.info['serial_number']}-{operation}-SpaceHeating-control"
+        self._attr_icon = 'mdi:sun-thermometer-outline'
+        self._attr_native_unit_of_measurement = TEMP_CELSIUS
+
+    @property
+    def native_value(self) -> float:
+        status = self._api.space_heating_status
+        operations = status.get('operations', {})
+        return operations.get(self._operation, 0)
+
+    @property
+    def native_min_value(self) -> int:
+        val = self._profile['minValue']
+        return val
+
+    @property
+    def native_max_value(self) -> int:
+        val = self._profile['maxValue']
+        return val
+
+    @property
+    def native_step(self) -> float:
+        val = self._profile['stepValue']
+        return val
+
+    @property
+    def device_info(self):
+        return self._attr_device_info
+
+    @property
+    def mode(self) -> str:
+        return 'box'
+
+    async def async_set_native_value(self, value: float) -> None:
+        await self._api.device.climate_control.call_operation(self._operation, int(value))
+        await self.coordinator.async_request_refresh()
+
+    @property
+    def device_info(self):
+        return self._attr_device_info
+
+    @property
+    def available(self):
+        return self._api.available
+
+    async def async_update(self):
+        await self._api.async_update()
 
 
 class AlthermaUnitTemperatureControl(NumberEntity, CoordinatorEntity):

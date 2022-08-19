@@ -25,10 +25,17 @@ class AlthermaUnitOperationMode(SelectEntity, CoordinatorEntity):
     def __init__(self, coordinator, api: AlthermaAPI):
         super().__init__(coordinator)
         self._api = api
+        device = api.device
         self._attr_name = 'Operation Mode'
         self._attr_device_info = api.space_heating_device_info
         self._attr_unique_id = f"{self._api.info['serial_number']}-SpaceHeating-power-mode"
-        self._attr_options = [x.value for x in list(ClimateControlMode)]
+
+        if device.climate_control is None or device.climate_control.unit is None or 'OperationMode' not in device.climate_control.unit.operations:
+            _LOGGER.warning("Cant read operation modes from the profile. Raise an issue!")
+            self._attr_options = [x.value for x in list(ClimateControlMode)]
+        else:
+            operation_modes = device.climate_control.unit.operations['OperationMode']
+            self._attr_options = operation_modes
         self._attr_icon = 'mdi:sun-snowflake'
 
     @property
