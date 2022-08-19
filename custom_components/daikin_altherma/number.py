@@ -34,24 +34,24 @@ class AlthermaUnitTemperatureControl(NumberEntity, CoordinatorEntity):
         self._attr_native_unit_of_measurement = TEMP_CELSIUS
 
     @property
-    def value(self) -> float:
+    def native_value(self) -> float:
         status = self._api.space_heating_status
         operations = status.get('operations', {})
         key, _ = self._get_value_config()
         return operations.get(key, 0)
 
     @property
-    def min_value(self) -> int:
+    def native_min_value(self) -> int:
         _, config = self._get_value_config()
         return config['minValue']
 
     @property
-    def max_value(self) -> int:
+    def native_max_value(self) -> int:
         _, config = self._get_value_config()
         return config['maxValue']
 
     @property
-    def step(self) -> int:
+    def native_step(self) -> int:
         _, config = self._get_value_config()
         return config['stepValue']
 
@@ -72,7 +72,7 @@ class AlthermaUnitTemperatureControl(NumberEntity, CoordinatorEntity):
         else:
             return None
 
-    async def async_set_value(self, value: float) -> None:
+    async def async_set_native_value(self, value: float) -> None:
         key, _ = self._get_value_config()
         await self._api.device.climate_control.call_operation(key, int(value))
         await self.coordinator.async_request_refresh()
