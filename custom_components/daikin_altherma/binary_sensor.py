@@ -67,3 +67,7 @@ class AlthermaUnitProblemSensor(BinarySensorEntity, CoordinatorEntity):
     @property
     def extra_state_attributes(self):
         return self._api.status[f"function/{self._unit_ref}"]['states']
+
+    @property
+    def available(self):
+        return self._api.available

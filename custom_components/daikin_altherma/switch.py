@@ -65,5 +65,9 @@ class AlthermaUnitPowerSwitch(SwitchEntity, CoordinatorEntity):
         await self._api.async_update()
 
     @property
+    def available(self):
+        return self._api.available
+
+    @property
     def extra_state_attributes(self):
         return self._api.status["function/SpaceHeating"]['states']
