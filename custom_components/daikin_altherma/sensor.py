@@ -1,5 +1,4 @@
 import logging
-
 from homeassistant.components.sensor import SensorEntity, DEVICE_CLASS_TEMPERATURE, STATE_CLASS_TOTAL_INCREASING
 from homeassistant.const import TEMP_CELSIUS, ENERGY_KILO_WATT_HOUR, DEVICE_CLASS_ENERGY
 from homeassistant.helpers.typing import StateType
@@ -180,6 +179,10 @@ class ConsumptionSensor(SensorEntity, CoordinatorEntity):
         last_value = _find_last_value(consumption_content)
 
         return last_value
+
+    @property
+    def available(self):
+        return self._api.available
 
     @property
     def device_info(self):

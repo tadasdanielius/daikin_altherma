@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import async_timeout
+import json
 import logging
-from aiohttp import ClientConnectionError
+import os
+from aiohttp import ClientConnectionError, ServerTimeoutError
+from asyncio import CancelledError
 from datetime import timedelta
 from homeassistant.components.water_heater import STATE_OFF, STATE_ON, STATE_PERFORMANCE
 from homeassistant.config_entries import ConfigEntry
@@ -14,8 +17,6 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import Throttle
 from pyaltherma.comm import DaikinWSConnection
 from pyaltherma.controllers import AlthermaController
-import os
-import json
 
 from .const import DOMAIN, MIN_TIME_BETWEEN_UPDATES_SECONDS, UPDATE_INTERVAL_SECONDS, ASYNC_UPDATE_TIMEOUT_SECONDS, \
     MAX_UPDATE_FAILED
@@ -34,12 +35,12 @@ async def setup_api_instance(hass, host):
     unit_profiles = device.profiles
 
     # Uncomment this if you want to store profile info in json files.
-    #try:
+    # try:
     #    for profile in unit_profiles:
     #        filepath: str = os.path.join(hass.config.config_dir, f'daikin_altherma_{profile["idx"]}.json')
     #        with open(filepath, 'w') as f:
     #            f.write(json.dumps(profile['profile']))
-    #except Exception as e:
+    # except Exception as e:
     #    _LOGGER.warning(f'Failed to save profile state to file {filepath}. It does not affect the operation of the integration.', exc_info=True)
 
     api = AlthermaAPI(device)
@@ -188,6 +189,10 @@ class AlthermaAPI:
                 await self.refresh_unit()
 
             await self.device.ws_connection.close()
+
+            if not self._available:
+                _LOGGER.info('Daikin became available again.')
+
             self._available = True
             self._failed_updates = 0
             self._type_error_failure = 0
@@ -196,15 +201,24 @@ class AlthermaAPI:
             self._type_error_failure += 1
             if self._type_error_failure < 2:
                 _LOGGER.error(f'Failed to update the device status with error {e}', e)
-        except ClientConnectionError:
-            _LOGGER.warning("Connection failed for %s", self.ip_address)
+
+        except (ClientConnectionError, ServerTimeoutError, CancelledError) as error:
             self._failed_updates += 1
-            if self._failed_updates > MAX_UPDATE_FAILED > 0:
-                _LOGGER.error(f'Too many failed updates. Making component unavailable.')
-                self._available = False
+            if self._available:
+                # report only once
+                _LOGGER.error(f"Failed to the get the data from the device [{self.host}] ({error})", exc_info=True)
+            self._available = False
+            # self._failed_updates += 1
+            # if self._failed_updates < 2
+            #    _LOGGER.error(f'Too many failed updates. Making component unavailable.')
+            #    self._available = False
             # Report only once
-            if self._failed_updates == 1:
-                _LOGGER.error(f'Failed update status from heat-pump.')
+            # if self._failed_updates == 1:
+            #    _LOGGER.error(f'Failed update status from heat-pump. ({error})')
+        except:
+            if self._available:
+                _LOGGER.error(f'Something went wrong while updating data from the device', exc_info=True)
+            self._available = False
 
     @property
     def available(self) -> bool:

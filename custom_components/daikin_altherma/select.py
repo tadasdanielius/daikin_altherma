@@ -47,5 +47,9 @@ class AlthermaUnitOperationMode(SelectEntity, CoordinatorEntity):
     def device_info(self):
         return self._attr_device_info
 
+    @property
+    def available(self):
+        return self._api.available
+
     async def async_update(self):
         await self._api.async_update()
