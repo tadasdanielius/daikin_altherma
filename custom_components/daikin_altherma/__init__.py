@@ -132,7 +132,10 @@ class AlthermaAPI:
 
     @property
     def water_tank_status(self):
-        return self._status["function/DomesticHotWaterTank"]
+        if "function/DomesticHotWaterTank" in self._status:
+            return self._status["function/DomesticHotWaterTank"]
+        if "function/DomesticHotWater" in self._status:
+            return self._status["function/DomesticHotWater"]
 
     @property
     def space_heating_status(self):
@@ -159,6 +162,10 @@ class AlthermaAPI:
             state = False
             if 'function/DomesticHotWaterTank' in self.status:
                 dhw_states = self.status['function/DomesticHotWaterTank']['states']
+                if 'InstallerState' in dhw_states:
+                    state = state | dhw_states['InstallerState']
+            elif 'function/DomesticHotWater' in self.status:
+                dhw_states = self.status['function/DomesticHotWater']['states']
                 if 'InstallerState' in dhw_states:
                     state = state | dhw_states['InstallerState']
             else:

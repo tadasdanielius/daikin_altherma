@@ -26,12 +26,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
             if 'LeavingWaterTemperatureOffsetHeating' in operations or \
                     'LeavingWaterTemperatureOffsetCooling' in operations or \
                     'LeavingWaterTemperatureOffsetAuto' in operations:
-                _LOGGER.warning(f'Added Leaving water')
                 entities.append(AlthermaUnitTemperatureControl(coordinator, api))
             if 'TargetTemperatureDay' in operations:
                 profile = operations['TargetTemperatureDay']
                 if type(profile) is dict:
-                    _LOGGER.warning(f'Added Target Temperature Day')
                     entities.append(
                         GenericOperationControl(
                             coordinator, api, 'Target Temperature Day', 'TargetTemperatureDay', profile)
@@ -42,7 +40,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
             if 'TargetTemperatureNight' in operations:
                 profile = operations['TargetTemperatureNight']
                 if type(profile) is dict:
-                    _LOGGER.warning('Added Target Temperature Night')
                     entities.append(
                         GenericOperationControl(
                             coordinator, api, 'Target Temperature Night', 'TargetTemperatureNight', profile)
@@ -98,7 +95,7 @@ class GenericOperationControl(NumberEntity, CoordinatorEntity):
         return 'box'
 
     async def async_set_native_value(self, value: float) -> None:
-        await self._api.device.climate_control.call_operation(self._operation, int(value))
+        await self._api.device.climate_control.call_operation(self._operation, int(value), validate=False)
         await self.coordinator.async_request_refresh()
 
     @property

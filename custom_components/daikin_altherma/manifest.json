@@ -5,7 +5,7 @@
   "documentation": "https://github.com/tadasdanielius/daikin_altherma",
   "issue_tracker": "https://github.com/tadasdanielius/daikin_altherma/issues",
   "requirements": [
-    "pyaltherma==0.0.17"
+    "pyaltherma==0.0.18"
   ],
   "ssdp": [],
   "zeroconf": [
@@ -16,5 +16,5 @@
     "@tadasdanielius"
   ],
   "iot_class": "local_polling",
-  "version": "1.3.0"
+  "version": "1.3.1"
 }
