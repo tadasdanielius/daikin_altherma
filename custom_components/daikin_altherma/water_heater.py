@@ -65,7 +65,7 @@ class AlthermaWaterHeater(WaterHeaterEntity, CoordinatorEntity):
         conf = device._unit.operation_config['DomesticHotWaterTemperatureHeating']
         if 'settable' in conf:
             return conf['settable']
-        return False
+        return True
 
     def _get_status(self):
         if "function/DomesticHotWaterTank" in self._api.status:
@@ -98,10 +98,22 @@ class AlthermaWaterHeater(WaterHeaterEntity, CoordinatorEntity):
     @property
     def current_temperature(self) -> float:
         status = self._get_status()
-        current_temperature = status[
-            "sensors"
-        ]["TankTemperature"]
-        return current_temperature
+        _LOGGER.warning(f"Hot Water status: {status}")
+        if "sensors" in status:
+            sensors = status["sensors"]
+            if "TankTemperature" in sensors:
+                return sensors['TankTemperature']
+            if len(sensors) > 0:
+                return list(sensors.values())[0]
+        if "operations" in status:
+            operations = status["operations"]
+            if "SensorTemperature" in operations:
+                return operations["SensorTemperature"]
+        return 0
+        #current_temperature = status[
+        #    "sensors"
+        #]["TankTemperature"]
+        #return current_temperature
 
     @property
     def current_operation(self):
