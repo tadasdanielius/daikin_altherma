@@ -67,9 +67,20 @@ class AlthermaWaterHeater(WaterHeaterEntity, CoordinatorEntity):
             return conf['settable']
         return False
 
+    def _get_status(self):
+        if "function/DomesticHotWaterTank" in self._api.status:
+            status = self._api.status[f"function/DomesticHotWaterTank"]
+
+        elif "function/DomesticHotWater" in self._api.status:
+            status = self._api.status[f"function/DomesticHotWater"]
+        else:
+            status = None
+        return status
+
     @property
     def supported_features(self):
-        states = self._api.status[f"function/DomesticHotWaterTank"]['states']
+        status = self._get_status()
+        states = status['states']
         if 'WeatherDependentState' in states:
             if states['WeatherDependentState']:
                 return SUPPORT_OPERATION_MODE
@@ -77,7 +88,8 @@ class AlthermaWaterHeater(WaterHeaterEntity, CoordinatorEntity):
 
     @property
     def target_temperature(self) -> float:
-        target_temperature = self._api.status["function/DomesticHotWaterTank"][
+        status = self._get_status()
+        target_temperature = status[
             "operations"
         ]["TargetTemperature"]
 
@@ -85,7 +97,8 @@ class AlthermaWaterHeater(WaterHeaterEntity, CoordinatorEntity):
 
     @property
     def current_temperature(self) -> float:
-        current_temperature = self._api.status["function/DomesticHotWaterTank"][
+        status = self._get_status()
+        current_temperature = status[
             "sensors"
         ]["TankTemperature"]
         return current_temperature
