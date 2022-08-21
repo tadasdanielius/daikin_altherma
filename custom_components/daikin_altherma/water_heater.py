@@ -18,6 +18,8 @@ _LOGGER = logging.getLogger(__name__)
 
 OPERATION_LIST = [STATE_OFF, STATE_ON, STATE_PERFORMANCE]
 
+OPERATION_LIST_NO_PERF = [STATE_OFF, STATE_ON]
+
 SUPPORT_FLAGS_HEATER = SUPPORT_TARGET_TEMPERATURE | SUPPORT_OPERATION_MODE
 
 
@@ -39,6 +41,11 @@ class AlthermaWaterHeater(WaterHeaterEntity, CoordinatorEntity):
     def __init__(self, coordinator, api: AlthermaAPI):
         super().__init__(coordinator)
         self._attr_name = "Domestic Hot Water Tank"
+        self._attr_operation_list = OPERATION_LIST
+        device = api.device
+        self.powerful_support = 'powerful' in [x.lower() for x in device.hot_water_tank.operations]
+        if not self.powerful_support:
+            self._attr_operation_list = OPERATION_LIST_NO_PERF
         self._attr_device_info = api.HWT_device_info
         self._api = api
         self._attr_unique_id = f"{self._api.info['serial_number']}-heater"
@@ -98,7 +105,7 @@ class AlthermaWaterHeater(WaterHeaterEntity, CoordinatorEntity):
     @property
     def current_temperature(self) -> float:
         status = self._get_status()
-        _LOGGER.warning(f"Hot Water status: {status}")
+        #_LOGGER.warning(f"Hot Water status: {status}")
         if "sensors" in status:
             sensors = status["sensors"]
             if "TankTemperature" in sensors:

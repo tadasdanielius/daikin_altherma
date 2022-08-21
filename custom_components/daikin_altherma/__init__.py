@@ -299,13 +299,24 @@ class AlthermaAPI:
         is_on = ops["Power"] == "on"
         # First check if it is on and if yes then check whatever it is in powerful mode
         if is_on:
-            state = ops["powerful"]
+            if 'powerful' in ops:
+                state = ops["powerful"]
+            else:
+                state = 0
+
             if state == 0:
                 return STATE_ON
             else:
                 return STATE_PERFORMANCE
         else:
             return STATE_OFF
+
+    def hwt_powerful_support(self):
+        device = self.device
+        if device.hot_water_tank is None:
+            return False
+        powerful_support = 'powerful' in [x.lower() for x in device.hot_water_tank.operations]
+        return powerful_support
 
     async def async_set_water_tank_state(self, state):
         """
@@ -314,14 +325,18 @@ class AlthermaAPI:
         @return: Nothing
         """
         if state == STATE_OFF:
-            await self.device.hot_water_tank.set_powerful(False)
+            if self.hwt_powerful_support():
+                await self.device.hot_water_tank.set_powerful(False)
             await self.device.hot_water_tank.turn_off()
         elif state == STATE_ON:
             await self.device.hot_water_tank.turn_on()
-            await self.device.hot_water_tank.set_powerful(False)
+            if self.hwt_powerful_support():
+                await self.device.hot_water_tank.set_powerful(False)
         else:
             await self.device.hot_water_tank.turn_on()
-            await self.device.hot_water_tank.set_powerful(True)
+
+            if self.hwt_powerful_support():
+                await self.device.hot_water_tank.set_powerful(True)
         await self.device.ws_connection.close()
 
     @property
