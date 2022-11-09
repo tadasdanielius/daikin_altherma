@@ -72,12 +72,12 @@ class GenericOperationControl(NumberEntity, CoordinatorEntity):
         return operations.get(self._operation, 0)
 
     @property
-    def native_min_value(self) -> int:
+    def native_min_value(self) -> float:
         val = self._profile['minValue']
         return val
 
     @property
-    def native_max_value(self) -> int:
+    def native_max_value(self) -> float:
         val = self._profile['maxValue']
         return val
 
@@ -130,17 +130,17 @@ class AlthermaUnitTemperatureControl(NumberEntity, CoordinatorEntity):
         return operations.get(key, 0)
 
     @property
-    def native_min_value(self) -> int:
+    def native_min_value(self) -> float:
         _, config = self._get_value_config()
         return config['minValue']
 
     @property
-    def native_max_value(self) -> int:
+    def native_max_value(self) -> float:
         _, config = self._get_value_config()
         return config['maxValue']
 
     @property
-    def native_step(self) -> int:
+    def native_step(self) -> float:
         _, config = self._get_value_config()
         return config['stepValue']
 
