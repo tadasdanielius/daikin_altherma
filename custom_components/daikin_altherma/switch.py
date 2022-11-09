@@ -20,9 +20,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
     if 'EcoMode' in operations:
         eco_switch = AlthermaOperationSwitch(
             coordinator, api,
-            operation='Power',
+            operation='EcoMode',
             unit_function=climate_control.unit_function,
-            states=operations['EcoMode'],
+            states=['1', '0'],
             attr_name="EcoMode"
         )
         entities.append(eco_switch)
