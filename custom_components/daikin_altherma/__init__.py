@@ -35,13 +35,13 @@ async def setup_api_instance(hass, host):
     unit_profiles = device.profiles
 
     # Uncomment this if you want to store profile info in json files.
-    try:
-        for profile in unit_profiles:
-            filepath: str = os.path.join(hass.config.config_dir, f'daikin_altherma_{profile["idx"]}.json')
-            with open(filepath, 'w') as f:
-                f.write(json.dumps(profile['profile']))
-    except Exception as e:
-        _LOGGER.warning(f'Failed to save profile state to file {filepath}. It does not affect the operation of the integration.', exc_info=True)
+    #try:
+    #    for profile in unit_profiles:
+    #        filepath: str = os.path.join(hass.config.config_dir, f'daikin_altherma_{profile["idx"]}.json')
+    #        with open(filepath, 'w') as f:
+    #            f.write(json.dumps(profile['profile']))
+    #except Exception as e:
+    #    _LOGGER.warning(f'Failed to save profile state to file {filepath}. It does not affect the operation of the integration.', exc_info=True)
 
     api = AlthermaAPI(device)
     await api.api_init()

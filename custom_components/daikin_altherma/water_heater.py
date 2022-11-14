@@ -140,3 +140,16 @@ class AlthermaWaterHeater(WaterHeaterEntity, CoordinatorEntity):
     @property
     def available(self):
         return self._api.available
+
+    async def async_turn_on(self, **kwargs) -> None:
+        await self.async_set_operation_mode(STATE_ON)
+
+    async def async_turn_off(self, **kwargs) -> None:
+        await self.async_set_operation_mode(STATE_OFF)
+
+    async def async_toggle(self, **kwargs) -> None:
+        current_operation = self.current_operation()
+        if current_operation == STATE_OFF:
+            await self.async_turn_on()
+        else:
+            await self.async_turn_off()
