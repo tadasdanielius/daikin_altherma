@@ -105,6 +105,10 @@ class AlthermaUnitSensor(SensorEntity, CoordinatorEntity):
     async def async_update(self):
         await self._api.async_update()
 
+    @property
+    def available(self):
+        return self._api.available
+
 
 def _find_last_value(a):
     if a[-1] is not None:
