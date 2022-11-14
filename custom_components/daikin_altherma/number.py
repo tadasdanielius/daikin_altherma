@@ -72,12 +72,12 @@ class GenericOperationControl(NumberEntity, CoordinatorEntity):
         return operations.get(self._operation, 0)
 
     @property
-    def native_min_value(self) -> int:
+    def native_min_value(self) -> float:
         val = self._profile['minValue']
         return val
 
     @property
-    def native_max_value(self) -> int:
+    def native_max_value(self) -> float:
         val = self._profile['maxValue']
         return val
 
@@ -95,7 +95,7 @@ class GenericOperationControl(NumberEntity, CoordinatorEntity):
         return 'box'
 
     async def async_set_native_value(self, value: float) -> None:
-        await self._api.device.climate_control.call_operation(self._operation, int(value), validate=False)
+        await self._api.device.climate_control.call_operation(self._operation, float(value), validate=False)
         await self.coordinator.async_request_refresh()
 
     @property
@@ -130,17 +130,17 @@ class AlthermaUnitTemperatureControl(NumberEntity, CoordinatorEntity):
         return operations.get(key, 0)
 
     @property
-    def native_min_value(self) -> int:
+    def native_min_value(self) -> float:
         _, config = self._get_value_config()
         return config['minValue']
 
     @property
-    def native_max_value(self) -> int:
+    def native_max_value(self) -> float:
         _, config = self._get_value_config()
         return config['maxValue']
 
     @property
-    def native_step(self) -> int:
+    def native_step(self) -> float:
         _, config = self._get_value_config()
         return config['stepValue']
 
@@ -163,7 +163,7 @@ class AlthermaUnitTemperatureControl(NumberEntity, CoordinatorEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         key, _ = self._get_value_config()
-        await self._api.device.climate_control.call_operation(key, int(value))
+        await self._api.device.climate_control.call_operation(key, float(value))
         await self.coordinator.async_request_refresh()
 
     @property
