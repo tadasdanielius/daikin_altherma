@@ -1,7 +1,10 @@
 # Daikin altherma custom component for Home assistant
 
 This HA integration is for BRP069A62 (should work with BRP069A61) Daikin Altherma LAN adapter.
-The integration connects to device locally and it does not need internet access to work.
+Also, it has been successfully tested with D2CND with gateway DRGATEWAYAA.
+
+
+The integration connects to device locally, thus internet connection is not required.
 
 **NOTE**: This is a very early release, and comes without any guarantees. So, use it at your own risk.
 
@@ -59,8 +62,9 @@ This integration allows to control the following options
 
 # Climate control component
 
+I do not own room thermostat, therefore I cannot properly test it. In this case I just control leaving water temperature.
 Daikin device allows to control leaving water temperature which is not what you expect your room temperature to be it is either higher or lower (if cooling is turned on). 
-So, in order to have thermostat type control you can use [generic thermostat](https://www.home-assistant.io/integrations/generic_thermostat/) with the integration
+If you don't have thermostat you can use [generic thermostat](https://www.home-assistant.io/integrations/generic_thermostat/) which comes with HA by default.
 
 Put this into your `configuration.yaml`:
 
