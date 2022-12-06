@@ -47,6 +47,17 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 else:
                     _LOGGER.error(f'Profile (TargetTemperatureNight) is not dictionary!')
 
+            if 'RoomTemperatureHeating' in operations:
+                profile = operations['RoomTemperatureHeating']
+                if type(profile) is dict:
+                    entities.append(
+                        GenericOperationControl(
+                            coordinator, api, 'Room Temperature', 'RoomTemperatureHeating', profile
+                        )
+                    )
+                else:
+                    _LOGGER.error(f'Room Temperature (RoomTemperatureHeating) is not a dictionary!')
+
     #async_add_entities([
     #    AlthermaUnitTemperatureControl(coordinator, api)
     #], update_before_add=False)
