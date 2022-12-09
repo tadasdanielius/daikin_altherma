@@ -126,7 +126,7 @@ class ConsumptionSensor(SensorEntity, CoordinatorEntity):
     _attr_native_unit_of_measurement = ENERGY_KILO_WATT_HOUR
 
     # Not sure if it is a right class?
-    _state_class = STATE_CLASS_TOTAL_INCREASING
+    _attr_state_class = STATE_CLASS_TOTAL_INCREASING
 
     def __init__(
             self, coordinator,
