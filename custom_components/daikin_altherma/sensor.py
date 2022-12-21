@@ -45,10 +45,17 @@ async def async_setup_entry(hass, entry, async_add_entities):
         # controller.unit.consumptions['Electrical'].actions['Heating'].consumption_contents -> Daily/Weekly/Monthly
         # controller.unit.consumptions['Electrical'].actions['Heating'].consumption_contents['Daily']
         # d.contentCount / d.resolution
+
+        # Actions - heating or cooling
+        # Consumption Type - Electrical or Gas
+        # Contents - Daily / Weekly / Monthly
         consumption_types = {'Electrical': 'Energy', 'Gas': 'Gas'}
         for consumption_type, ct_name in consumption_types.items():
             for unit_function, controller in device.altherma_units.items():
                 if not controller.unit.consumptions_available:
+                    continue
+
+                if consumption_types not in controller.unit.consumptions:
                     continue
 
                 device_info = api.space_heating_device_info
