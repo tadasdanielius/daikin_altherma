@@ -55,7 +55,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 if not controller.unit.consumptions_available:
                     continue
 
-                if consumption_types not in controller.unit.consumptions:
+                if consumption_type not in controller.unit.consumptions:
                     continue
 
                 device_info = api.space_heating_device_info
