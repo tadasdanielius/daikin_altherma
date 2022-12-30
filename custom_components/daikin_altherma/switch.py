@@ -50,7 +50,7 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
         self._states = states
 
     async def async_turn_on(self, **kwargs) -> None:
-        await self._set_state(self._states[1])
+        await self._set_state(1)
 
     async def _set_state(self, state):
         device = self._api.device
@@ -61,7 +61,7 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
         await self._api.device.ws_connection.close()
 
     async def async_turn_off(self, **kwargs) -> None:
-        await self._set_state(self._states[0])
+        await self._set_state(0)
 
     @property
     def is_on(self) -> bool:
