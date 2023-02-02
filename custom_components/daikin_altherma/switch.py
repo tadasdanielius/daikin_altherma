@@ -55,7 +55,7 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
     async def _set_state(self, state):
         device = self._api.device
         controller = device.altherma_units[self._unit_function]
-        await controller.call_operation(self._operation, state)
+        await controller.call_operation(self._operation, state, validate=False)
         self._state = state
         await self.coordinator.async_request_refresh()
         await self._api.device.ws_connection.close()
