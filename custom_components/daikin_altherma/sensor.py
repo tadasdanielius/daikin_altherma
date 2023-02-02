@@ -1,5 +1,6 @@
 import logging
-from homeassistant.components.sensor import SensorEntity, DEVICE_CLASS_TEMPERATURE, STATE_CLASS_TOTAL_INCREASING
+from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
+#DEVICE_CLASS_TEMPERATURE, STATE_CLASS_TOTAL_INCREASING
 from homeassistant.const import TEMP_CELSIUS, ENERGY_KILO_WATT_HOUR, DEVICE_CLASS_ENERGY
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import (
@@ -45,34 +46,42 @@ async def async_setup_entry(hass, entry, async_add_entities):
         # controller.unit.consumptions['Electrical'].actions['Heating'].consumption_contents -> Daily/Weekly/Monthly
         # controller.unit.consumptions['Electrical'].actions['Heating'].consumption_contents['Daily']
         # d.contentCount / d.resolution
-        consumption_type = 'Electrical'
-        for unit_function, controller in device.altherma_units.items():
-            if not controller.unit.consumptions_available:
-                continue
 
-            device_info = api.space_heating_device_info
-            if unit_function == 'function/DomesticHotWaterTank':
-                device_info = api.HWT_device_info
+        # Actions - heating or cooling
+        # Consumption Type - Electrical or Gas
+        # Contents - Daily / Weekly / Monthly
+        consumption_types = {'Electrical': 'Energy', 'Gas': 'Gas'}
+        for consumption_type, ct_name in consumption_types.items():
+            for unit_function, controller in device.altherma_units.items():
+                if not controller.unit.consumptions_available:
+                    continue
 
-            unit_name = await controller.unit_name
-            actions = controller.unit.consumptions[consumption_type].actions
-            for action, details in actions.items():
-                contents = details.consumption_contents
-                if 'Daily' in contents:
-                    entities.append(
-                        ConsumptionSensor(coordinator, api, device_info, unit_function, unit_name, action, 'D',
-                                          '2 Hours', consumption_type=consumption_type, consumption_type_name='Energy')
-                    )
-                if 'Weekly' in contents:
-                    entities.append(
-                        ConsumptionSensor(coordinator, api, device_info, unit_function, unit_name, action, 'W', 'Day',
-                                          consumption_type=consumption_type, consumption_type_name='Energy')
-                    )
-                if 'Monthly' in contents:
-                    entities.append(
-                        ConsumptionSensor(coordinator, api, device_info, unit_function, unit_name, action, 'M', 'Month',
-                                          consumption_type=consumption_type, consumption_type_name='Energy')
-                    )
+                if consumption_type not in controller.unit.consumptions:
+                    continue
+
+                device_info = api.space_heating_device_info
+                if unit_function == 'function/DomesticHotWaterTank':
+                    device_info = api.HWT_device_info
+
+                unit_name = await controller.unit_name
+                actions = controller.unit.consumptions[consumption_type].actions
+                for action, details in actions.items():
+                    contents = details.consumption_contents
+                    if 'Daily' in contents:
+                        entities.append(
+                            ConsumptionSensor(coordinator, api, device_info, unit_function, unit_name, action, 'D',
+                                              '2 Hours', consumption_type=consumption_type, consumption_type_name=ct_name)
+                        )
+                    if 'Weekly' in contents:
+                        entities.append(
+                            ConsumptionSensor(coordinator, api, device_info, unit_function, unit_name, action, 'W', 'Day',
+                                              consumption_type=consumption_type, consumption_type_name=ct_name)
+                        )
+                    if 'Monthly' in contents:
+                        entities.append(
+                            ConsumptionSensor(coordinator, api, device_info, unit_function, unit_name, action, 'M', 'Month',
+                                              consumption_type=consumption_type, consumption_type_name=ct_name)
+                        )
 
     except:
         _LOGGER.warning('consumption information could not be added', exc_info=True)
@@ -80,7 +89,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class AlthermaUnitSensor(SensorEntity, CoordinatorEntity):
-    _attr_device_class = DEVICE_CLASS_TEMPERATURE
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_native_unit_of_measurement = TEMP_CELSIUS
 
     def __init__(self, coordinator, api: AlthermaAPI, sensor: str, name: str = None):
@@ -122,11 +131,10 @@ def _find_last_value(a):
 
 
 class ConsumptionSensor(SensorEntity, CoordinatorEntity):
-    _attr_device_class = DEVICE_CLASS_ENERGY
+    _attr_device_class = SensorDeviceClass.ENERGY
     _attr_native_unit_of_measurement = ENERGY_KILO_WATT_HOUR
 
-    # Not sure if it is a right class?
-    _attr_state_class = STATE_CLASS_TOTAL_INCREASING
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
 
     def __init__(
             self, coordinator,
