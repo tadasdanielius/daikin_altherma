@@ -1,5 +1,5 @@
 import logging
-from homeassistant.components.binary_sensor import BinarySensorEntity, DEVICE_CLASS_PROBLEM
+from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorDeviceClass
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
 )
@@ -27,14 +27,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
         entities.append(AlthermaUnitProblemSensor(
             coordinator, api, 'Hot Water Tank State',
             api.HWT_device_info,
-            #'DomesticHotWaterTank'
+            # 'DomesticHotWaterTank'
             unit_ref
         ))
     async_add_entities(entities, update_before_add=False)
 
 
 class AlthermaUnitProblemSensor(BinarySensorEntity, CoordinatorEntity):
-    _attr_device_class = DEVICE_CLASS_PROBLEM
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
 
     def __init__(
             self, coordinator, api: AlthermaAPI,

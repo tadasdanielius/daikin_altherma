@@ -1,5 +1,6 @@
 import logging
-from homeassistant.components.sensor import SensorEntity, DEVICE_CLASS_TEMPERATURE, STATE_CLASS_TOTAL_INCREASING
+from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
+#DEVICE_CLASS_TEMPERATURE, STATE_CLASS_TOTAL_INCREASING
 from homeassistant.const import TEMP_CELSIUS, ENERGY_KILO_WATT_HOUR, DEVICE_CLASS_ENERGY
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import (
@@ -80,7 +81,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class AlthermaUnitSensor(SensorEntity, CoordinatorEntity):
-    _attr_device_class = DEVICE_CLASS_TEMPERATURE
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_native_unit_of_measurement = TEMP_CELSIUS
 
     def __init__(self, coordinator, api: AlthermaAPI, sensor: str, name: str = None):
@@ -122,11 +123,10 @@ def _find_last_value(a):
 
 
 class ConsumptionSensor(SensorEntity, CoordinatorEntity):
-    _attr_device_class = DEVICE_CLASS_ENERGY
+    _attr_device_class = SensorDeviceClass.ENERGY
     _attr_native_unit_of_measurement = ENERGY_KILO_WATT_HOUR
 
-    # Not sure if it is a right class?
-    _attr_state_class = STATE_CLASS_TOTAL_INCREASING
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
 
     def __init__(
             self, coordinator,
