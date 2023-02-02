@@ -1,5 +1,5 @@
 import logging
-from homeassistant.components.switch import SwitchEntity, DEVICE_CLASS_SWITCH
+from homeassistant.components.switch import SwitchEntity, SwitchDeviceClass
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
 )
@@ -30,7 +30,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
-    _attr_device_class = DEVICE_CLASS_SWITCH
+    _attr_device_class = SwitchDeviceClass.SWITCH
 
     def __init__(self, coordinator, api: AlthermaAPI,
                  operation, unit_function,
@@ -94,7 +94,7 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
 
 
 class AlthermaUnitPowerSwitch(SwitchEntity, CoordinatorEntity):
-    _attr_device_class = DEVICE_CLASS_SWITCH
+    _attr_device_class = SwitchDeviceClass.SWITCH
 
     def __init__(self, coordinator, api: AlthermaAPI):
         super().__init__(coordinator)
