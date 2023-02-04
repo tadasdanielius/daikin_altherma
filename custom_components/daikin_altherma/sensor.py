@@ -105,7 +105,10 @@ class AlthermaUnitSensor(SensorEntity, CoordinatorEntity):
         unit_status = self._api.status['function/SpaceHeating']
         sensors = unit_status['sensors']
         status = sensors[self._sensor]
-        return round(status, 2)
+        if status is not None:
+            return round(status, 2)
+        else:
+            return None
 
     @property
     def device_info(self):

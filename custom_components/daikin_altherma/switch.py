@@ -63,13 +63,11 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
     async def async_turn_off(self, **kwargs) -> None:
         await self._set_state(0)
 
-    @property
     def is_on(self) -> bool:
-        # _op_state = self._api.status[self._controller.unit_function]['operations']
         _op_state = self._api.status[self._unit_function]['operations']
         if self._operation in _op_state:
             state = _op_state[self._operation]
-            return str(state) == self._states[0]
+            return str(state) == self._states[1]
         else:
             return None
 
@@ -87,10 +85,10 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
     async def async_toggle(self, **kwargs) -> None:
         state = self.is_on
         if state is not None:
-            if state == self._states[1]:
-                await self.turn_on()
+            if state:
+                await self.async_turn_off()
             else:
-                await self.turn_off()
+                await self.async_turn_on()
 
 
 class AlthermaUnitPowerSwitch(SwitchEntity, CoordinatorEntity):
