@@ -22,7 +22,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             coordinator, api,
             operation='EcoMode',
             unit_function=climate_control.unit_function,
-            states=['1', '0'],
+            states=['0', '1'],
             attr_name="EcoMode"
         )
         entities.append(eco_switch)
@@ -55,6 +55,7 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
     async def _set_state(self, state):
         device = self._api.device
         controller = device.altherma_units[self._unit_function]
+        _LOGGER.debug(f'{self._unit_function}[{self._operation}] set_state = {state}')
         await controller.call_operation(self._operation, state, validate=False)
         self._state = state
         await self.coordinator.async_request_refresh()
@@ -65,6 +66,8 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
 
     def is_on(self) -> bool:
         _op_state = self._api.status[self._unit_function]['operations']
+        _LOGGER.debug(f'{self._unit_function}[{self._operation}] set_state = {_op_state}')
+
         if self._operation in _op_state:
             state = _op_state[self._operation]
             return str(state) == self._states[1]
