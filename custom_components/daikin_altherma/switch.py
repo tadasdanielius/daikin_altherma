@@ -64,6 +64,7 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
     async def async_turn_off(self, **kwargs) -> None:
         await self._set_state(0)
 
+    @property
     def is_on(self) -> bool:
         _op_state = self._api.status[self._unit_function]['operations']
         _LOGGER.warning(f'{self._unit_function}[{self._operation}] set_state = {_op_state}')
@@ -94,6 +95,8 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
                 await self.async_turn_off()
             else:
                 await self.async_turn_on()
+        else:
+            _LOGGER.warning(f'{self._unit_function}[{self._operation}] unable to determine current state.')
 
 
 class AlthermaUnitPowerSwitch(SwitchEntity, CoordinatorEntity):
