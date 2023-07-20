@@ -22,7 +22,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             coordinator, api,
             operation='EcoMode',
             unit_function=climate_control.unit_function,
-            states=['1', '0'],
+            states=['0', '1'],
             attr_name="EcoMode"
         )
         entities.append(eco_switch)
@@ -50,27 +50,31 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
         self._states = states
 
     async def async_turn_on(self, **kwargs) -> None:
-        await self._set_state(self._states[0])
+        await self._set_state(1)
 
     async def _set_state(self, state):
         device = self._api.device
         controller = device.altherma_units[self._unit_function]
-        await controller.call_operation(self._operation, state)
+        _LOGGER.warning(f'{self._unit_function}[{self._operation}] set_state = {state}')
+        await controller.call_operation(self._operation, state, validate=False)
         self._state = state
         await self.coordinator.async_request_refresh()
         await self._api.device.ws_connection.close()
 
     async def async_turn_off(self, **kwargs) -> None:
-        await self._set_state(self._states[1])
+        await self._set_state(0)
 
     @property
     def is_on(self) -> bool:
-        # _op_state = self._api.status[self._controller.unit_function]['operations']
         _op_state = self._api.status[self._unit_function]['operations']
+        _LOGGER.warning(f'{self._unit_function}[{self._operation}] set_state = {_op_state}')
+
         if self._operation in _op_state:
             state = _op_state[self._operation]
-            return str(state) == self._states[0]
+            _LOGGER.warning(f'current {self._operation} state is {state}')
+            return str(state) == self._states[1]
         else:
+            _LOGGER.error(f'Op {self._operation} is not in the op state {_op_state}')
             return None
 
     @property
@@ -87,10 +91,12 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
     async def async_toggle(self, **kwargs) -> None:
         state = self.is_on
         if state is not None:
-            if state == self._states[1]:
-                await self.turn_on()
+            if state:
+                await self.async_turn_off()
             else:
-                await self.turn_off()
+                await self.async_turn_on()
+        else:
+            _LOGGER.warning(f'{self._unit_function}[{self._operation}] unable to determine current state.')
 
 
 class AlthermaUnitPowerSwitch(SwitchEntity, CoordinatorEntity):
