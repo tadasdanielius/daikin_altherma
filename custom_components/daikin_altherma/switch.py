@@ -67,11 +67,9 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
     @property
     def is_on(self) -> bool:
         _op_state = self._api.status[self._unit_function]['operations']
-        _LOGGER.warning(f'{self._unit_function}[{self._operation}] set_state = {_op_state}')
 
         if self._operation in _op_state:
             state = _op_state[self._operation]
-            _LOGGER.warning(f'current {self._operation} state is {state}')
             return str(state) == self._states[1]
         else:
             _LOGGER.error(f'Op {self._operation} is not in the op state {_op_state}')
