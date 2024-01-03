@@ -1,6 +1,6 @@
 import logging
 from homeassistant.components.number import NumberEntity
-from homeassistant.const import TEMP_CELSIUS
+from homeassistant.const import UnitOfTemperature
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
 )
@@ -74,7 +74,7 @@ class GenericOperationControl(NumberEntity, CoordinatorEntity):
         self._attr_device_info = api.space_heating_device_info
         self._attr_unique_id = f"{self._api.info['serial_number']}-{operation}-SpaceHeating-control"
         self._attr_icon = 'mdi:sun-thermometer-outline'
-        self._attr_native_unit_of_measurement = TEMP_CELSIUS
+        self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
 
     @property
     def native_value(self) -> float:
@@ -131,7 +131,7 @@ class AlthermaUnitTemperatureControl(NumberEntity, CoordinatorEntity):
         self._attr_unique_id = f"{self._api.info['serial_number']}-SpaceHeating-temp-control"
         self._attr_options = [x.value for x in list(ClimateControlMode)]
         self._attr_icon = 'mdi:sun-thermometer-outline'
-        self._attr_native_unit_of_measurement = TEMP_CELSIUS
+        self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
 
     @property
     def native_value(self) -> float:

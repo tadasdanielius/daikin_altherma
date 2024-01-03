@@ -1,13 +1,12 @@
 """The Daikin Altherma integration."""
 from __future__ import annotations
 
-import async_timeout
-import json
 import logging
-import os
-from aiohttp import ClientConnectionError, ServerTimeoutError
 from asyncio import CancelledError
 from datetime import timedelta
+
+import async_timeout
+from aiohttp import ClientConnectionError, ServerTimeoutError
 from homeassistant.components.water_heater import STATE_OFF, STATE_ON, STATE_PERFORMANCE
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
@@ -35,12 +34,12 @@ async def setup_api_instance(hass, host):
     unit_profiles = device.profiles
 
     # Uncomment this if you want to store profile info in json files.
-    #try:
+    # try:
     #    for profile in unit_profiles:
     #        filepath: str = os.path.join(hass.config.config_dir, f'daikin_altherma_{profile["idx"]}.json')
     #        with open(filepath, 'w') as f:
     #            f.write(json.dumps(profile['profile']))
-    #except Exception as e:
+    # except Exception as e:
     #    _LOGGER.warning(f'Failed to save profile state to file {filepath}. It does not affect the operation of the integration.', exc_info=True)
 
     api = AlthermaAPI(device)

@@ -3,11 +3,10 @@ from homeassistant.components.water_heater import (
     STATE_OFF,
     STATE_ON,
     STATE_PERFORMANCE,
-    SUPPORT_OPERATION_MODE,
-    SUPPORT_TARGET_TEMPERATURE,
     WaterHeaterEntity,
+    WaterHeaterEntityFeature
 )
-from homeassistant.const import ATTR_TEMPERATURE, TEMP_CELSIUS
+from homeassistant.const import UnitOfTemperature, ATTR_TEMPERATURE
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
 )
@@ -20,7 +19,7 @@ OPERATION_LIST = [STATE_OFF, STATE_ON, STATE_PERFORMANCE]
 
 OPERATION_LIST_NO_PERF = [STATE_OFF, STATE_ON]
 
-SUPPORT_FLAGS_HEATER = SUPPORT_TARGET_TEMPERATURE | SUPPORT_OPERATION_MODE
+SUPPORT_FLAGS_HEATER = WaterHeaterEntityFeature.TARGET_TEMPERATURE | WaterHeaterEntityFeature.OPERATION_MODE
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -34,7 +33,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class AlthermaWaterHeater(WaterHeaterEntity, CoordinatorEntity):
-    _attr_temperature_unit = TEMP_CELSIUS
+    _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_operation_list = OPERATION_LIST
     _attr_supported_features = SUPPORT_FLAGS_HEATER
 
