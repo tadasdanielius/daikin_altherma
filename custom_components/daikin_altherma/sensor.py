@@ -1,8 +1,6 @@
 import logging
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
-#DEVICE_CLASS_TEMPERATURE, STATE_CLASS_TOTAL_INCREASING
 from homeassistant.const import UnitOfEnergy, UnitOfTemperature
-# TEMP_CELSIUS, ENERGY_KILO_WATT_HOUR, DEVICE_CLASS_ENERGY
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,

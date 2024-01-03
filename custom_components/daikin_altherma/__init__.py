@@ -349,6 +349,8 @@ class AlthermaAPI:
         if "DomesticHotWaterTemperatureHeating" in self.device.hot_water_tank._unit.operation_config:
             return self.device.hot_water_tank._unit.operation_config["DomesticHotWaterTemperatureHeating"]
 
-        return self.device.hot_water_tank._unit.operation_config["TargetTemperature"][
-            "heating"
-        ]
+        if "TargetTemperature" in self.device.hot_water_tank._unit.operation_config:
+            return self.device.hot_water_tank._unit.operation_config["TargetTemperature"][
+                "heating"
+            ]
+        return {}
