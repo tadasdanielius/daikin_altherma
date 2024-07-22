@@ -47,17 +47,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 else:
                     _LOGGER.error(f'Profile (TargetTemperatureNight) is not dictionary!')
 
-            if 'RoomTemperatureHeating' in operations:
-                profile = operations['RoomTemperatureHeating']
-                if type(profile) is dict:
-                    entities.append(
-                        GenericOperationControl(
-                            coordinator, api, 'Room Temperature', 'RoomTemperatureHeating', profile
-                        )
-                    )
-                else:
-                    _LOGGER.error(f'Room Temperature (RoomTemperatureHeating) is not a dictionary!')
-
+            if 'RoomTemperatureHeating' in operations or \
+                    'RoomTemperatureCooling' in operations or \
+                    'RoomTemperatureAuto' in operations:
+                entities.append(RoomTemperatureOperationControl(coordinator, api))
     #async_add_entities([
     #    AlthermaUnitTemperatureControl(coordinator, api)
     #], update_before_add=False)
@@ -120,6 +113,70 @@ class GenericOperationControl(NumberEntity, CoordinatorEntity):
     async def async_update(self):
         await self._api.async_update()
 
+class RoomTemperatureOperationControl(NumberEntity, CoordinatorEntity):
+    def __init__(self, coordinator, api: AlthermaAPI):
+        super().__init__(coordinator)
+        self._api = api
+        self._attr_name = 'Room Temperature'
+        self._attr_device_info = api.space_heating_device_info
+        self._attr_unique_id = f"{self._api.info['serial_number']}-SpaceHeating-room-temp"
+        self._attr_options = [x.value for x in list(ClimateControlMode)]
+        self._attr_icon = 'mdi:sun-thermometer-outline'
+        self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+
+    @property
+    def native_value(self) -> float:
+        status = self._api.space_heating_status
+        operations = status.get('operations', {})
+        key, _ = self._get_value_config()
+        return operations.get(key, 0)
+
+    @property
+    def native_min_value(self) -> float:
+        _, config = self._get_value_config()
+        return config['minValue']
+
+    @property
+    def native_max_value(self) -> float:
+        _, config = self._get_value_config()
+        return config['maxValue']
+
+    @property
+    def native_step(self) -> float:
+        _, config = self._get_value_config()
+        return config['stepValue']
+
+    def _get_value_config(self):
+        schema = self._api.device.climate_control.unit.operation_config
+        status: dict = self._api.space_heating_status
+        operations = status.get('operations', {})
+        mode = operations.get('OperationMode', None)
+        if mode is not None:
+            prop = f'RoomTemperature{mode.capitalize()}'
+            config = schema.get(prop, {'settable': False})
+            return prop, config
+        else:
+            return None
+
+    async def async_set_native_value(self, value: float) -> None:
+        key, _ = self._get_value_config()
+        await self._api.device.climate_control.call_operation(key, float(value))
+        await self.coordinator.async_request_refresh()
+
+    @property
+    def device_info(self):
+        return self._attr_device_info
+
+    @property
+    def available(self):
+        return self._api.available
+
+    async def async_update(self):
+        await self._api.async_update()
+
+    @property
+    def mode(self) -> str:
+        return 'box'
 
 class AlthermaUnitTemperatureControl(NumberEntity, CoordinatorEntity):
 
