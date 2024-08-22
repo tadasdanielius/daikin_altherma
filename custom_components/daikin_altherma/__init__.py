@@ -36,6 +36,8 @@ async def setup_api_instance(hass, host):
 
     # Uncomment this if you want to store profile info in json files.
     # try:
+    #    import os
+    #    import json
     #    for profile in unit_profiles:
     #        filepath: str = os.path.join(hass.config.config_dir, f'daikin_altherma_{profile["idx"]}.json')
     #        with open(filepath, 'w') as f:
