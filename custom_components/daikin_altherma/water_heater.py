@@ -103,11 +103,14 @@ class AlthermaWaterHeater(WaterHeaterEntity, CoordinatorEntity):
     @property
     def target_temperature(self) -> float:
         status = self._get_status()
-        target_temperature = status[
-            "operations"
-        ]["TargetTemperature"]
-
-        return target_temperature
+        operations = status["operations"]
+        
+        if "DomesticHotWaterTemperatureHeating":
+            return operations["DomesticHotWaterTemperatureHeating"]
+        elif "TargetTemperature" in operations:
+            return operations["TargetTemperature"]
+        else:
+            return 0
 
     @property
     def current_temperature(self) -> float:
