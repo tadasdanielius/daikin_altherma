@@ -13,7 +13,7 @@
     "pyaltherma==0.0.21"
   ],
   "ssdp": [],
-  "version": "1.5.2",
+  "version": "1.5.3",
   "zeroconf": [
     "_daikin._tcp.local."
   ]
