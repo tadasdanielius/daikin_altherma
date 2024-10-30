@@ -14,6 +14,7 @@ from homeassistant.helpers.typing import DiscoveryInfoType
 from pyaltherma.comm import DaikinWSConnection
 from pyaltherma.controllers import AlthermaController
 from typing import Any
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN, TIMEOUT
 
@@ -45,7 +46,7 @@ class DaikinAlthermaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 with timeout(TIMEOUT):
                     self.host = user_input[CONF_HOST]
                     conn = DaikinWSConnection(
-                        self.hass.helpers.aiohttp_client.async_get_clientsession(),
+                        async_get_clientsession(self.hass),
                         self.host,
                     )
                     device = AlthermaController(conn)
@@ -72,7 +73,7 @@ class DaikinAlthermaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         try:
             with timeout(TIMEOUT):
                 conn = DaikinWSConnection(
-                    self.hass.helpers.aiohttp_client.async_get_clientsession(),
+                    async_get_clientsession(self.hass),
                     self.host,
                 )
                 device = AlthermaController(conn)
@@ -96,3 +97,4 @@ class DaikinAlthermaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="zeroconf_confirm", description_placeholders=self.device_info
         )
+
