@@ -11,6 +11,7 @@ from homeassistant.components.water_heater import STATE_OFF, STATE_ON, STATE_PER
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -67,9 +68,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Daikin Altherma from a config entry."""
     conf = entry.data
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = api = await setup_api_instance(
-        hass, conf[CONF_HOST]
-    )
+    try:
+        api = await setup_api_instance(hass, conf[CONF_HOST])
+    except (ClientConnectionError, ServerTimeoutError, CancelledError, OSError) as error:
+        raise ConfigEntryNotReady(
+            f"Could not connect to Daikin Altherma unit at {conf[CONF_HOST]}"
+        ) from error
     hass.data[DOMAIN][entry.entry_id] = api
     coordinator = DataUpdateCoordinator(
         hass,
