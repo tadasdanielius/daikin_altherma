@@ -122,6 +122,7 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
 
 class AlthermaUnitPowerSwitch(SwitchEntity, CoordinatorEntity):
     _attr_device_class = SwitchDeviceClass.SWITCH
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, api: AlthermaAPI):
         super().__init__(coordinator)
