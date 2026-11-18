@@ -151,6 +151,7 @@ class AlthermaUnitSensor(SensorEntity, CoordinatorEntity):
 
 class AlthermaWaterTankModeSensor(SensorEntity, CoordinatorEntity):
     _attr_device_class = SensorDeviceClass.ENUM
+    _attr_translation_key = 'hot_water_tank_mode'
 
     def __init__(self, coordinator, api: AlthermaAPI, options):
         super().__init__(coordinator)

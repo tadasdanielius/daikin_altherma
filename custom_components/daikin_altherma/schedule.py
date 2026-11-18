@@ -10,6 +10,9 @@ Inside a period the unit runs the schedule's first operation mode, outside it th
 WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
 WEEKEND = ['saturday', 'sunday']
 
+# Entry 0 is the empty schedule; the unit switches to it when the operation mode is set manually
+MANUAL_SCHEDULE_ID = 0
+
 # Schedule names are not in the data (NameAdjustable: false); positions as shown by the app on D2CND
 SCHEDULE_NAMES = {
     'function/SpaceHeating': {1: 'Automatic 1', 2: 'Automatic 2'},
@@ -74,6 +77,8 @@ def decode_entry(entry, groups, modes):
 def decode_active(unit_function, profile, active, entries):
     """Active schedule -> (name, {group: [switch points]}) using the unit profile."""
     schedule_id = active['id']
+    if schedule_id == MANUAL_SCHEDULE_ID:
+        return 'Manual', {}
     kind = active['path'].rstrip('/').split('/')[-2]  # .../schedule/List/Heating/la
     layout = profile['Schedule']['List'][kind]
     modes = layout[0]['OperationMode']
