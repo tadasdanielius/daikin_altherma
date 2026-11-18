@@ -1,5 +1,6 @@
 import logging
 from homeassistant.components.switch import SwitchEntity, SwitchDeviceClass
+from homeassistant.const import EntityCategory
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
 )
@@ -26,6 +27,22 @@ async def async_setup_entry(hass, entry, async_add_entities):
             attr_name="EcoMode"
         )
         entities.append(eco_switch)
+
+    hwt = api.device.hot_water_tank
+    if api.HWT_device_info is not None and 'Power' in hwt.operations:
+        # On/off for daily use is the water heater (OperationMode); unit Power is rarely needed
+        entities.append(AlthermaOperationSwitch(
+            coordinator, api,
+            operation='Power',
+            unit_function=hwt.unit_function,
+            states=['standby', 'on'],
+            values=['standby', 'on'],
+            attr_name='Power',
+            icon='mdi:power',
+            device_info=api.HWT_device_info,
+            unique_ref=hwt.unit_function.split('/')[1],
+            entity_category=EntityCategory.DIAGNOSTIC,
+        ))
     async_add_entities(entities, update_before_add=False)
 
 
@@ -35,22 +52,28 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
     def __init__(self, coordinator, api: AlthermaAPI,
                  operation, unit_function,
                  states=["0", "1"],
+                 values=(0, 1),
                  attr_name='undefined',
-                 icon="mdi:toggle-switch"):
+                 icon="mdi:toggle-switch",
+                 device_info=None,
+                 unique_ref='SpaceHeating',
+                 entity_category=None):
 
         super().__init__(coordinator)
         self._api = api
         self._attr_name = attr_name
-        self._attr_device_info = api.space_heating_device_info
-        self._attr_unique_id = f"{self._api.info['serial_number']}-SpaceHeating-{attr_name}"
+        self._attr_device_info = device_info or api.space_heating_device_info
+        self._attr_unique_id = f"{self._api.info['serial_number']}-{unique_ref}-{attr_name}"
+        self._attr_entity_category = entity_category
         self._state = None
         self._attr_icon = icon
         self._unit_function = unit_function
         self._operation = operation
         self._states = states
+        self._values = values
 
     async def async_turn_on(self, **kwargs) -> None:
-        await self._set_state(1)
+        await self._set_state(self._values[1])
 
     async def _set_state(self, state):
         device = self._api.device
@@ -62,7 +85,7 @@ class AlthermaOperationSwitch(SwitchEntity, CoordinatorEntity):
         await self._api.device.ws_connection.close()
 
     async def async_turn_off(self, **kwargs) -> None:
-        await self._set_state(0)
+        await self._set_state(self._values[0])
 
     @property
     def is_on(self) -> bool:

@@ -345,7 +345,8 @@ class AlthermaAPI:
     def water_tank_operation(self):
         status = self.water_tank_status
         ops = status["operations"]
-        is_on = ops["Power"] == "on"
+        # Units with OperationMode (e.g. D2CND) are switched off via standby, Power stays on
+        is_on = ops["Power"] == "on" and ops.get("OperationMode") != "standby"
         # First check if it is on and if yes then check whatever it is in powerful mode
         if is_on:
             if 'powerful' in ops:
@@ -373,19 +374,23 @@ class AlthermaAPI:
         @param state: string
         @return: Nothing
         """
+        hwt = self.device.hot_water_tank
+        has_mode = 'OperationMode' in hwt.operations
         if state == STATE_OFF:
             if self.hwt_powerful_support():
-                await self.device.hot_water_tank.set_powerful(False)
-            await self.device.hot_water_tank.turn_off()
-        elif state == STATE_ON:
-            await self.device.hot_water_tank.turn_on()
-            if self.hwt_powerful_support():
-                await self.device.hot_water_tank.set_powerful(False)
+                await hwt.set_powerful(False)
+            if has_mode:
+                # Like the app: standby the tank, Power is left to its own switch
+                await hwt.call_operation('OperationMode', 'standby')
+            else:
+                await hwt.turn_off()
         else:
-            await self.device.hot_water_tank.turn_on()
-
+            if self.water_tank_status['operations'].get('Power') != 'on':
+                await hwt.turn_on()
+            if has_mode:
+                await hwt.call_operation('OperationMode', 'heating')
             if self.hwt_powerful_support():
-                await self.device.hot_water_tank.set_powerful(True)
+                await hwt.set_powerful(state != STATE_ON)
         await self.device.ws_connection.close()
 
     @property
