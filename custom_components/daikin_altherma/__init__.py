@@ -1,14 +1,15 @@
 """The Daikin Altherma integration."""
 from __future__ import annotations
 
+import json
 import logging
-from asyncio import CancelledError
 from datetime import timedelta
 
 import async_timeout
-from aiohttp import ClientConnectionError, ServerTimeoutError
+from aiohttp import ClientConnectionError, ClientError, ServerTimeoutError
 from homeassistant.components.water_heater import STATE_OFF, STATE_ON, STATE_PERFORMANCE
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
@@ -17,6 +18,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import Throttle
 from pyaltherma.comm import DaikinWSConnection
 from pyaltherma.controllers import AlthermaController
+from pyaltherma.errors import AlthermaException
 
 from .const import DOMAIN, MIN_TIME_BETWEEN_UPDATES_SECONDS, UPDATE_INTERVAL_SECONDS, ASYNC_UPDATE_TIMEOUT_SECONDS, \
     MAX_UPDATE_FAILED
@@ -57,7 +59,8 @@ def create_update_function(api):
         try:
             async with async_timeout.timeout(ASYNC_UPDATE_TIMEOUT_SECONDS):
                 await _api.async_update()
-        except:
+        except TimeoutError:
+            _api.mark_unavailable(f'no response within {ASYNC_UPDATE_TIMEOUT_SECONDS}s')
             raise
 
     return async_update_data
@@ -67,9 +70,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Daikin Altherma from a config entry."""
     conf = entry.data
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = api = await setup_api_instance(
-        hass, conf[CONF_HOST]
-    )
+    try:
+        api = await setup_api_instance(hass, conf[CONF_HOST])
+    except (ClientError, TimeoutError, AlthermaException) as error:
+        # HA retries setup with backoff instead of leaving the entry failed
+        raise ConfigEntryNotReady(f"Daikin adapter at {conf[CONF_HOST]} not reachable: {error}") from error
     hass.data[DOMAIN][entry.entry_id] = api
     coordinator = DataUpdateCoordinator(
         hass,
@@ -147,8 +152,46 @@ class AlthermaAPI:
     def device(self) -> AlthermaController:
         return self._device
 
+    async def _read_status(self):
+        status = await self.device.get_current_state()
+        # Fault code ("" when no fault) is not part of pyaltherma's unit state
+        for unit_function, controller in self.device.altherma_units.items():
+            status[unit_function]['error'] = await controller.read('Error')
+        for controller in (self.device.climate_control, self.device.hot_water_tank):
+            if controller is not None:
+                status[controller.unit_function]['next_schedule'] = await self._read_schedule_data(
+                    controller, 'Next')
+                status[controller.unit_function]['schedule'] = await self._read_active_schedule(controller)
+        return status
+
+    @staticmethod
+    async def _read_schedule_data(controller, prop):
+        # Schedule values are JSON strings wrapped as {"data": ...}
+        raw = await controller.read('Schedule', prop)
+        try:
+            return json.loads(raw)['data']
+        except (TypeError, ValueError, KeyError):
+            return None
+
+    def unit_profile(self, unit_function):
+        for profile in self.device.profiles:
+            if profile['label'] == unit_function:
+                return profile['profile']
+        return None
+
+    async def _read_active_schedule(self, controller):
+        # Active: {"path": ".../schedule/List/Heating/la", "id": n}; List: one entry string per schedule
+        active = await self._read_schedule_data(controller, 'Active')
+        if active is None:
+            return None
+        kind = active['path'].rstrip('/').split('/')[-2]
+        entries = await self._read_schedule_data(controller, f'List/{kind}')
+        if entries is None:
+            return None
+        return {'active': active, 'entries': entries}
+
     async def api_init(self):
-        self._status = await self.device.get_current_state()
+        self._status = await self._read_status()
         self._info = await self.device.device_info()
         if self._device.climate_control is not None:
             self._climate_control_powered = await self._device.climate_control.is_turned_on
@@ -182,14 +225,14 @@ class AlthermaAPI:
         return None
 
     async def refresh_unit(self):
-        self.device.refresh()
+        await self.device.refresh()
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self, **kwargs):
         """Pull the latest data from Daikin."""
         try:
             prev_installer_state = self.get_state('InstallerState')
-            self._status = await self.device.get_current_state()
+            self._status = await self._read_status()
             self._climate_control_powered = await self._device.climate_control.is_turned_on
             installer_state = self.get_state('InstallerState')
             if prev_installer_state is not None and prev_installer_state != installer_state and installer_state is False:
@@ -215,12 +258,10 @@ class AlthermaAPI:
             if self._type_error_failure < 2:
                 _LOGGER.error(f'Failed to update the device status with error {e}', e)
 
-        except (ClientConnectionError, ServerTimeoutError, CancelledError) as error:
+        except (ClientConnectionError, ServerTimeoutError, TimeoutError) as error:
+            # CancelledError must propagate: it carries update timeouts and shutdown
             self._failed_updates += 1
-            if self._available:
-                # report only once
-                _LOGGER.error(f"Failed to the get the data from the device [{self.host}] ({error})", exc_info=True)
-            self._available = False
+            self.mark_unavailable(error)
             # self._failed_updates += 1
             # if self._failed_updates < 2
             #    _LOGGER.error(f'Too many failed updates. Making component unavailable.')
@@ -228,10 +269,16 @@ class AlthermaAPI:
             # Report only once
             # if self._failed_updates == 1:
             #    _LOGGER.error(f'Failed update status from heat-pump. ({error})')
-        except:
+        except Exception:
             if self._available:
                 _LOGGER.error(f'Something went wrong while updating data from the device', exc_info=True)
             self._available = False
+
+    def mark_unavailable(self, error):
+        if self._available:
+            # report only once
+            _LOGGER.error(f"Failed to the get the data from the device [{self.host}] ({error})")
+        self._available = False
 
     @property
     def available(self) -> bool:
