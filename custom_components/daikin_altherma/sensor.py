@@ -236,6 +236,8 @@ class AlthermaNextScheduleSensor(SensorEntity, CoordinatorEntity):
         nxt = self._next()
         if nxt is None:
             return None
+        if not nxt:
+            return 'none'  # {"data": {}}: no schedule active (manual mode)
         parts = [f"{WEEKDAYS[nxt['Day']]} {self._start_time(nxt)}", nxt.get('OperationMode')]
         temperature = self._temperature(nxt)
         if temperature is not None:
@@ -245,7 +247,7 @@ class AlthermaNextScheduleSensor(SensorEntity, CoordinatorEntity):
     @property
     def extra_state_attributes(self):
         nxt = self._next()
-        if nxt is None:
+        if not nxt:
             return None
         return {
             'day': WEEKDAYS[nxt['Day']],
