@@ -21,7 +21,28 @@
     },
     "abort": {
       "unsupported_model": "This device is already configured.",
-      "already_configured": "Host"
+      "already_configured": "Device is already configured"
+    }
+  },
+  "entity": {
+    "select": {
+      "operation_mode": {
+        "state": {
+          "heating_day": "Day",
+          "heating_night": "Night",
+          "heating": "Heating",
+          "cooling": "Cooling",
+          "auto": "Auto"
+        }
+      }
+    },
+    "sensor": {
+      "hot_water_tank_mode": {
+        "state": {
+          "heating": "Heating",
+          "standby": "Standby"
+        }
+      }
     }
   }
 }

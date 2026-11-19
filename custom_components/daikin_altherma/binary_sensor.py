@@ -8,6 +8,8 @@ from . import DOMAIN, AlthermaAPI
 
 _LOGGER = logging.getLogger(__name__)
 
+PROBLEM_STATES = ('ErrorState', 'WarningState', 'EmergencyState')
+
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Daikin climate based on config_entry."""
@@ -60,17 +62,14 @@ class AlthermaUnitProblemSensor(BinarySensorEntity, CoordinatorEntity):
         return self._is_problem_state()
 
     def _is_problem_state(self):
-        unit_status = self._api.status[f'function/{self._unit_ref}']
-        states = unit_status['states'].copy()
-        # Not a problem if we are in weather dependent state
-        if 'WeatherDependentState' in states:
-            del states['WeatherDependentState']
-        values = list(states.values())
-        return sum(values) > 0
+        # Only fault states; others (e.g. TargetTemperatureOverruledState) are normal operation
+        states = self._api.status[f'function/{self._unit_ref}']['states']
+        return any(states.get(state) for state in PROBLEM_STATES)
 
     @property
     def extra_state_attributes(self):
-        return self._api.status[f"function/{self._unit_ref}"]['states']
+        unit_status = self._api.status[f"function/{self._unit_ref}"]
+        return {**unit_status['states'], 'ErrorCode': unit_status.get('error')}
 
     @property
     def available(self):

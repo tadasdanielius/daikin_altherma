@@ -21,6 +21,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class AlthermaUnitOperationMode(SelectEntity, CoordinatorEntity):
+    _attr_translation_key = 'operation_mode'
 
     def __init__(self, coordinator, api: AlthermaAPI):
         super().__init__(coordinator)
