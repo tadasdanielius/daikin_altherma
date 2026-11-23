@@ -1,129 +1,175 @@
 """The Daikin Altherma integration."""
+
 from __future__ import annotations
 
+import asyncio
 import logging
-from asyncio import CancelledError
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import timedelta
+from inspect import signature
+from math import isfinite
 
-import async_timeout
-from aiohttp import ClientConnectionError, ServerTimeoutError
+from aiohttp import ClientError
 from homeassistant.components.water_heater import STATE_OFF, STATE_ON, STATE_PERFORMANCE
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.util import Throttle
-from pyaltherma.comm import DaikinWSConnection
+from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from pyaltherma.controllers import AlthermaController
+from pyaltherma.errors import AlthermaException
 
-from .const import DOMAIN, MIN_TIME_BETWEEN_UPDATES_SECONDS, UPDATE_INTERVAL_SECONDS, ASYNC_UPDATE_TIMEOUT_SECONDS, \
-    MAX_UPDATE_FAILED
+from .connection import DaikinWSConnection, async_close_connection
+from .const import (
+    ASYNC_UPDATE_TIMEOUT_SECONDS,
+    DOMAIN,
+    TIMEOUT,
+    UPDATE_INTERVAL_SECONDS,
+)
+from .details import read_unit_details
 
 PLATFORMS = ["water_heater", "sensor", "switch", "select", "number", "binary_sensor"]
-MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=MIN_TIME_BETWEEN_UPDATES_SECONDS)
 _LOGGER = logging.getLogger(__name__)
+API_ERRORS = (
+    ClientError,
+    TimeoutError,
+    OSError,
+    AlthermaException,
+    ValueError,
+    TypeError,
+    KeyError,
+)
+
+
+@dataclass
+class AlthermaEntryData:
+    api: AlthermaAPI
+    coordinator: DataUpdateCoordinator
 
 
 async def setup_api_instance(hass, host):
-    session = async_get_clientsession(hass)
-    conn = DaikinWSConnection(session, host)
-    device = AlthermaController(conn)
-    await device.discover_units()
-
-    unit_profiles = device.profiles
-
-    # Uncomment this if you want to store profile info in json files.
-    # try:
-    #    import os
-    #    import json
-    #    for profile in unit_profiles:
-    #        filepath: str = os.path.join(hass.config.config_dir, f'daikin_altherma_{profile["idx"]}.json')
-    #        with open(filepath, 'w') as f:
-    #            f.write(json.dumps(profile['profile']))
-    # except Exception as e:
-    #    _LOGGER.warning(f'Failed to save profile state to file {filepath}. It does not affect the operation of the integration.', exc_info=True)
-
-    api = AlthermaAPI(device)
-    await api.api_init()
-    return api
+    conn = DaikinWSConnection(async_get_clientsession(hass), host)
+    try:
+        async with asyncio.timeout(TIMEOUT):
+            device = AlthermaController(conn)
+            await device.discover_units()
+            api = AlthermaAPI(device)
+            await api.api_init()
+            return api
+    finally:
+        await async_close_connection(conn)
 
 
 def create_update_function(api):
-    _api = api
-
     async def async_update_data():
         try:
-            async with async_timeout.timeout(ASYNC_UPDATE_TIMEOUT_SECONDS):
-                await _api.async_update()
-        except:
-            raise
+            await api.async_update()
+        except API_ERRORS as err:
+            raise UpdateFailed(f"Unable to update Daikin at {api.host}: {err}") from err
+        return api.status
 
     return async_update_data
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Daikin Altherma from a config entry."""
-    conf = entry.data
-    hass.data.setdefault(DOMAIN, {})
+    """Set up a separately coordinated connection for each adapter."""
     try:
-        api = await setup_api_instance(hass, conf[CONF_HOST])
-    except (ClientConnectionError, ServerTimeoutError, OSError) as error:
+        api = await setup_api_instance(hass, entry.data[CONF_HOST])
+    except API_ERRORS as err:
         raise ConfigEntryNotReady(
-            f"Could not connect to Daikin Altherma unit at {conf[CONF_HOST]}"
-        ) from error
-    hass.data[DOMAIN][entry.entry_id] = api
+            f"Unable to initialize Daikin at {entry.data[CONF_HOST]} "
+            f"({type(err).__name__}): {err}. Check the adapter address, "
+            "network access and local API support; see README troubleshooting."
+        ) from err
+
+    # Older HA releases obtain the entry from the setup context instead.
+    coordinator_options = {}
+    if "config_entry" in signature(DataUpdateCoordinator).parameters:
+        coordinator_options["config_entry"] = entry
     coordinator = DataUpdateCoordinator(
         hass,
         _LOGGER,
-        name="daikin_altherma_coordinator",
+        name=f"daikin_altherma_{entry.entry_id}",
         update_method=create_update_function(api),
         update_interval=timedelta(seconds=UPDATE_INTERVAL_SECONDS),
+        **coordinator_options,
     )
-    await coordinator.async_refresh()
-    hass.data[DOMAIN]['coordinator'] = coordinator
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except BaseException:
+        await coordinator.async_shutdown()
+        await api.async_close()
+        raise
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = AlthermaEntryData(
+        api, coordinator
+    )
+    try:
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    except BaseException:
+        await coordinator.async_shutdown()
+        await api.async_close()
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+        raise
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
-
-    return unload_ok
+    """Unload entities before closing their adapter connection."""
+    if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        return False
+    data = hass.data[DOMAIN].pop(entry.entry_id)
+    await data.coordinator.async_shutdown()
+    await data.api.async_close()
+    return True
 
 
 class AlthermaAPI:
     def __init__(self, device: AlthermaController) -> None:
-        """Initialize the Daikin Handle."""
         self._device = device
         self.host = device.ws_connection.host
-        self._status = None
+        self._status = {}
         self._info = None
-        self._available = True
+        self._available = False
         self._hwt_device_info = None
         self._space_heating_device_info = None
+        self._climate_control_powered = None
+        self._lock = asyncio.Lock()
+        self.unit_details = {}
+        self._next_details_update = 0.0
 
-        self._climate_control_powered = False
-        self._failed_updates = 0
-        self._type_error_failure = 0
+    @asynccontextmanager
+    async def transaction(self, timeout=ASYNC_UPDATE_TIMEOUT_SECONDS):
+        """Serialize complete reads and commands, including connection cleanup."""
+        async with self._lock:
+            try:
+                async with asyncio.timeout(timeout) as timer:
+                    yield timer
+            except BaseException:
+                self._available = False
+                raise
+            finally:
+                await async_close_connection(self.device.ws_connection)
+
+    async def async_close(self):
+        async with self._lock:
+            await async_close_connection(self.device.ws_connection)
+
+    async def async_execute(self, method, *args, **kwargs):
+        """Run a command with the same lock and timeout as polling."""
+        try:
+            async with self.transaction():
+                return await method(*args, **kwargs)
+        except API_ERRORS as err:
+            raise HomeAssistantError(f"Daikin command failed: {err}") from err
 
     async def turn_on_climate_control(self):
-        await self._device.climate_control.turn_on()
-        self._climate_control_powered = True
+        await self.async_execute(self._device.climate_control.turn_on)
 
     async def turn_off_climate_control(self):
-        await self._device.climate_control.turn_off()
-        self._climate_control_powered = False
-
-    async def async_is_climate_control_on(self):
-        self._climate_control_powered = await self._device.climate_control.is_turned_on
-        return self.is_climate_control_on()
+        await self.async_execute(self._device.climate_control.turn_off)
 
     def is_climate_control_on(self):
         return self._climate_control_powered
@@ -138,108 +184,95 @@ class AlthermaAPI:
 
     @property
     def water_tank_status(self):
-        if "function/DomesticHotWaterTank" in self._status:
-            return self._status["function/DomesticHotWaterTank"]
-        if "function/DomesticHotWater" in self._status:
-            return self._status["function/DomesticHotWater"]
+        return self._status.get(
+            "function/DomesticHotWaterTank",
+            self._status.get("function/DomesticHotWater", {}),
+        )
+
+    @property
+    def water_tank_current_temperature(self):
+        """Return a known water-temperature reading from the cached snapshot."""
+        status = self.water_tank_status
+        sensors = status.get("sensors", {})
+        for key in ("TankTemperature", "SensorTemperature"):
+            if key in sensors:
+                return temperature_value(sensors[key])
+        return temperature_value(status.get("operations", {}).get("SensorTemperature"))
+
+    @property
+    def water_tank_target_temperature(self):
+        key, _ = self.water_tank_temperature_operation
+        return temperature_value(self.water_tank_status.get("operations", {}).get(key))
 
     @property
     def space_heating_status(self):
-        return self._status["function/SpaceHeating"]
+        return self._status.get("function/SpaceHeating", {})
 
     @property
     def device(self) -> AlthermaController:
         return self._device
 
     async def api_init(self):
-        self._status = await self.device.get_current_state()
-        self._info = await self.device.device_info()
-        if self._device.climate_control is not None:
-            self._climate_control_powered = await self._device.climate_control.is_turned_on
-        else:
-            self._climate_control_powered = False
+        async with self.transaction(TIMEOUT):
+            self._info = await self.device.device_info()
+            await self.get_HWT_device_info()
+            await self.get_space_heating_device_info()
 
-        await self.get_HWT_device_info()
-        await self.get_space_heating_device_info()
-        await self._device.ws_connection.close()
-
-    def get_state(self, state_key):
-        if self.status is not None:
-            state = False
-            if 'function/DomesticHotWaterTank' in self.status:
-                dhw_states = self.status['function/DomesticHotWaterTank']['states']
-                if 'InstallerState' in dhw_states:
-                    state = state | dhw_states['InstallerState']
-            elif 'function/DomesticHotWater' in self.status:
-                dhw_states = self.status['function/DomesticHotWater']['states']
-                if 'InstallerState' in dhw_states:
-                    state = state | dhw_states['InstallerState']
-            else:
-                state = False
-
-            if 'function/SpaceHeating' in self.status:
-                sh_states = self.status['function/SpaceHeating']['states']
-                if 'InstallerState' in sh_states:
-                    state = state | sh_states['InstallerState']
-
-            return state
-        return None
+    def get_state(self, state_key, status=None):
+        status = self._status if status is None else status
+        return any(
+            unit.get("states", {}).get(state_key, False) for unit in status.values()
+        )
 
     async def refresh_unit(self):
-        self.device.refresh()
+        await self.device.refresh()
 
-    @Throttle(MIN_TIME_BETWEEN_UPDATES)
-    async def async_update(self, **kwargs):
-        """Pull the latest data from Daikin."""
-        try:
-            prev_installer_state = self.get_state('InstallerState')
-            self._status = await self.device.get_current_state()
-            self._climate_control_powered = await self._device.climate_control.is_turned_on
-            installer_state = self.get_state('InstallerState')
-            if prev_installer_state is not None and prev_installer_state != installer_state and installer_state is False:
-                # Leaving installer mode can have changes which may not be refreshed properly
-                # For example from fixed temperature to weather dependent are read from profile during initialization
-                # and it should update the profile after installer state
-                _LOGGER.warning(
-                    'Unit left installer state. If there are heavy changes it is probably better to reload integration. Currently it may not fully incorporate new settings.')
-
+    async def async_update(self):
+        """Publish a complete snapshot only after a successful read."""
+        async with self.transaction() as timer:
+            status = await self.device.get_current_state()
+            self._validate_status(status)
+            if self.get_state("InstallerState") and not self.get_state(
+                "InstallerState", status
+            ):
                 await self.refresh_unit()
-
-            await self.device.ws_connection.close()
-
-            if not self._available:
-                _LOGGER.info('Daikin became available again.')
-
+                status = await self.device.get_current_state()
+                self._validate_status(status)
+            power = (
+                status.get("function/SpaceHeating", {})
+                .get("operations", {})
+                .get("Power")
+            )
+            now = asyncio.get_running_loop().time()
+            if now >= self._next_details_update:
+                # Leave time to publish the main snapshot even if an optional read stalls.
+                deadline = min(now + 2, timer.when() - 0.1)
+                details = {}
+                if deadline > now:
+                    try:
+                        async with asyncio.timeout_at(deadline):
+                            await read_unit_details(self, status, details)
+                    except TimeoutError:
+                        _LOGGER.debug("Optional Daikin status reads timed out")
+                self.unit_details = details
+                self._next_details_update = now + 60
+            self._climate_control_powered = None if power is None else power == "on"
+            self._status = status
             self._available = True
-            self._failed_updates = 0
-            self._type_error_failure = 0
-        except TypeError as e:
-            # Report only once
-            self._type_error_failure += 1
-            if self._type_error_failure < 2:
-                _LOGGER.error(f'Failed to update the device status with error {e}', e)
 
-        except (ClientConnectionError, ServerTimeoutError, CancelledError) as error:
-            self._failed_updates += 1
-            if self._available:
-                # report only once
-                _LOGGER.error(f"Failed to the get the data from the device [{self.host}] ({error})", exc_info=True)
-            self._available = False
-            # self._failed_updates += 1
-            # if self._failed_updates < 2
-            #    _LOGGER.error(f'Too many failed updates. Making component unavailable.')
-            #    self._available = False
-            # Report only once
-            # if self._failed_updates == 1:
-            #    _LOGGER.error(f'Failed update status from heat-pump. ({error})')
-        except:
-            if self._available:
-                _LOGGER.error(f'Something went wrong while updating data from the device', exc_info=True)
-            self._available = False
+    @staticmethod
+    def _validate_status(status):
+        if not isinstance(status, dict) or not status:
+            raise ValueError("Device returned no unit status")
+        for unit in status.values():
+            if not isinstance(unit, dict):
+                raise TypeError("Invalid unit status")
+            for section in ("operations", "states", "sensors"):
+                if not isinstance(unit.get(section, {}), dict):
+                    raise TypeError(f"Invalid {section} status")
 
     @property
     def available(self) -> bool:
-        """Return True if entity is available."""
         return self._available
 
     @property
@@ -262,8 +295,9 @@ class AlthermaAPI:
 
             self._hwt_device_info = DeviceInfo(
                 **{
-                    "identifiers": {(DOMAIN, f"{self._info['serial_number']} Hot Water Tank")},
-                    # "name": self._info["duty"],
+                    "identifiers": {
+                        (DOMAIN, f"{self._info['serial_number']} Hot Water Tank")
+                    },
                     "name": "Hot Water Tank",
                     "manufacturer": self._info["manufacturer"],
                     "model": await hwt.model_number,
@@ -280,8 +314,9 @@ class AlthermaAPI:
 
             self._space_heating_device_info = DeviceInfo(
                 **{
-                    "identifiers": {(DOMAIN, f"{self._info['serial_number']} Space Heating")},
-                    # "name": self._info["duty"],
+                    "identifiers": {
+                        (DOMAIN, f"{self._info['serial_number']} Space Heating")
+                    },
                     "name": "Space Heating",
                     "manufacturer": self._info["manufacturer"],
                     "model": await space_heating.model_number,
@@ -300,64 +335,99 @@ class AlthermaAPI:
 
     @property
     def water_tank_operation(self):
-        status = self.water_tank_status
-        ops = status["operations"]
-        is_on = ops["Power"] == "on"
-        # First check if it is on and if yes then check whatever it is in powerful mode
-        if is_on:
-            if 'powerful' in ops:
-                state = ops["powerful"]
-            else:
-                state = 0
-
-            if state == 0:
-                return STATE_ON
-            else:
-                return STATE_PERFORMANCE
-        else:
+        ops = self.water_tank_status.get("operations", {})
+        if "Power" not in ops:
+            return None
+        if ops["Power"] != "on" or (
+            self.tank_standby_support and ops.get("OperationMode") == "standby"
+        ):
             return STATE_OFF
+        powerful = ops.get("powerful", ops.get("Powerful", 0))
+        return STATE_PERFORMANCE if str(powerful).lower() in ("1", "true") else STATE_ON
+
+    @property
+    def tank_standby_support(self):
+        tank = self.device.hot_water_tank
+        modes = (
+            tank.unit.operations.get("OperationMode") if tank and tank.unit else None
+        )
+        return isinstance(modes, list) and "heating" in modes and "standby" in modes
 
     def hwt_powerful_support(self):
-        device = self.device
-        if device.hot_water_tank is None:
-            return False
-        powerful_support = 'powerful' in [x.lower() for x in device.hot_water_tank.operations]
-        return powerful_support
+        tank = self.device.hot_water_tank
+        return tank is not None and any(
+            x.lower() == "powerful" for x in tank.operations
+        )
 
     async def async_set_water_tank_state(self, state):
-        """
-        Sets new hot water tank state. It can be off / on / powerful
-        @param state: string
-        @return: Nothing
-        """
-        if state == STATE_OFF:
-            if self.hwt_powerful_support():
-                await self.device.hot_water_tank.set_powerful(False)
-            await self.device.hot_water_tank.turn_off()
-        elif state == STATE_ON:
-            await self.device.hot_water_tank.turn_on()
-            if self.hwt_powerful_support():
-                await self.device.hot_water_tank.set_powerful(False)
-        else:
-            await self.device.hot_water_tank.turn_on()
+        tank = self.device.hot_water_tank
+        if tank is None or state not in (STATE_OFF, STATE_ON, STATE_PERFORMANCE):
+            raise HomeAssistantError("Unsupported water heater operation")
+        if state == STATE_PERFORMANCE and not self.hwt_powerful_support():
+            raise HomeAssistantError("Powerful mode is not supported")
 
-            if self.hwt_powerful_support():
-                await self.device.hot_water_tank.set_powerful(True)
-        await self.device.ws_connection.close()
+        async def set_state():
+            if state == STATE_OFF:
+                if self.hwt_powerful_support():
+                    await tank.set_powerful(False)
+                if self.tank_standby_support:
+                    await tank.call_operation("OperationMode", "standby")
+                else:
+                    await tank.turn_off()
+            else:
+                if (
+                    not self.tank_standby_support
+                    or self.water_tank_status.get("operations", {}).get("Power") != "on"
+                ):
+                    await tank.turn_on()
+                if self.tank_standby_support:
+                    await tank.call_operation("OperationMode", "heating")
+                if self.hwt_powerful_support():
+                    await tank.set_powerful(state == STATE_PERFORMANCE)
+
+        await self.async_execute(set_state)
+
+    @property
+    def water_tank_temperature_operation(self):
+        tank = self.device.hot_water_tank
+        if tank is None or tank.unit is None:
+            return None, {}
+        schema = tank.unit.operation_config
+        for key in ("DomesticHotWaterTemperatureHeating", "TargetTemperature"):
+            config = schema.get(key)
+            if isinstance(config, dict):
+                if isinstance(config.get("heating"), dict):
+                    config = {**config, **config["heating"]}
+                return key, config
+        return None, {}
 
     @property
     def water_tank_target_temp_config(self) -> dict:
-        """
-        Returns the configuration values for target temperature.
-        Normally it should have the maximum, minimum and step numbers
-        @rtype: dict
-        """
+        return self.water_tank_temperature_operation[1]
 
-        if "DomesticHotWaterTemperatureHeating" in self.device.hot_water_tank._unit.operation_config:
-            return self.device.hot_water_tank._unit.operation_config["DomesticHotWaterTemperatureHeating"]
 
-        if "TargetTemperature" in self.device.hot_water_tank._unit.operation_config:
-            return self.device.hot_water_tank._unit.operation_config["TargetTemperature"][
-                "heating"
-            ]
-        return {}
+def validate_temperature(value, config):
+    """The dependency logs invalid values but still sends them; reject them here."""
+    if not config or not config.get("settable", True):
+        raise HomeAssistantError("Temperature is not writable in the current mode")
+    try:
+        value = float(value)
+        minimum, maximum = float(config["minValue"]), float(config["maxValue"])
+    except (TypeError, ValueError, KeyError) as err:
+        raise HomeAssistantError(
+            "Temperature or device temperature limits are invalid"
+        ) from err
+    if not isfinite(value) or not minimum <= value <= maximum:
+        raise HomeAssistantError(f"Temperature must be between {minimum} and {maximum}")
+    return value
+
+
+def temperature_value(value):
+    """Treat absent, placeholder and non-finite temperature readings as unknown."""
+    if isinstance(value, bool):
+        return None
+    try:
+        value = float(value)
+    except (ValueError, TypeError):
+        return None
+    return value if isfinite(value) else None
