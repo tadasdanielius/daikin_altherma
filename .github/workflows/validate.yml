@@ -14,8 +14,9 @@ jobs:
   validate:
     runs-on: "ubuntu-latest"
     steps:
-      - uses: "actions/checkout@v2"
       - name: HACS validation
         uses: "hacs/action@main"
         with:
           category: "integration"
+          # Contributor forks may have no topics and a disabled issue tracker.
+          ignore: ${{ github.event_name == 'push' && github.event.repository.fork && 'issues topics' || '' }}
