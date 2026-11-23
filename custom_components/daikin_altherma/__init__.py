@@ -70,7 +70,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     try:
         api = await setup_api_instance(hass, conf[CONF_HOST])
-    except (ClientConnectionError, ServerTimeoutError, CancelledError, OSError) as error:
+    except (ClientConnectionError, ServerTimeoutError, OSError) as error:
         raise ConfigEntryNotReady(
             f"Could not connect to Daikin Altherma unit at {conf[CONF_HOST]}"
         ) from error
