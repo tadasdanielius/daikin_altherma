@@ -3,25 +3,28 @@
     "flow_title": "{manufacturer} {duty} {serial_number}",
     "step": {
       "user": {
-        "description": "Set up Daikin Altherma unit integration.",
+        "description": "Enter the local IP address or hostname of your Daikin LAN adapter (for example 192.168.1.50 or daikin.local). Find it in your router's connected-device list. Use the adapter address, not the Home Assistant address or an Onecta account. Do not include a URL scheme or path. The adapter must expose the local Daikin API and be reachable from Home Assistant; cloud-only adapters cannot use this integration.",
         "data": {
-          "host": "Host"
+          "host": "Adapter IP address or hostname"
         }
       },
       "zeroconf_confirm": {
         "description": "Do you want to add the {manufacturer} {duty} with serial number `{serial_number}` to Home Assistant?",
         "title": "Discovered Daikin Unit",
-        "data": {
-          "host": "Host"
-        }
+        "data": {}
       }
     },
     "error": {
-      "cannot_connect": "Unable to connect"
+      "invalid_host": "Enter the LAN adapter IP address or hostname, for example 192.168.1.50 or daikin.local. Do not include http://, ws://, or a path.",
+      "cannot_connect": "Could not connect to the adapter. Check its address, power and network access from Home Assistant. This integration requires an adapter exposing the local Daikin API. See the integration README troubleshooting section and Settings > System > Logs for details.",
+      "timeout": "The adapter did not complete setup in time. Check its address and network access from Home Assistant, then retry. A timeout alone does not establish whether the adapter is compatible. See Settings > System > Logs for details.",
+      "invalid_response": "The adapter did not provide the expected local Daikin API response. Check that this is the adapter address. A reachable web page or working Onecta app does not confirm local API support. See the integration README troubleshooting section and Settings > System > Logs for details."
     },
     "abort": {
-      "unsupported_model": "This device is already configured.",
-      "already_configured": "Device is already configured"
+      "already_configured": "This adapter is already configured. Its address has been updated if it changed.",
+      "cannot_connect": "Could not connect to the adapter. Check its address, power and network access from Home Assistant. This integration requires an adapter exposing the local Daikin API. See the integration README troubleshooting section and Settings > System > Logs for details.",
+      "timeout": "The adapter did not complete setup in time. Check its address and network access from Home Assistant, then retry. A timeout alone does not establish whether the adapter is compatible. See Settings > System > Logs for details.",
+      "invalid_response": "The adapter did not provide the expected local Daikin API response. Check that this is the adapter address. A reachable web page or working Onecta app does not confirm local API support. See the integration README troubleshooting section and Settings > System > Logs for details."
     }
   },
   "entity": {

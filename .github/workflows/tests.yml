@@ -1,0 +1,41 @@
+name: Regression tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: '3.12'
+            homeassistant: 'homeassistant==2024.6.4'
+            # This old HA release's ACME dependency predates josepy 2.
+            josepy: 'josepy<2'
+          - python: '3.13'
+            homeassistant: 'homeassistant==2025.4.4'
+            josepy: 'josepy'
+          - python: '3.14'
+            homeassistant: 'homeassistant'
+            josepy: 'josepy'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install test dependencies
+        env:
+          HA_PACKAGE: ${{ matrix.homeassistant }}
+          JOSEPY_PACKAGE: ${{ matrix.josepy }}
+        run: python -m pip install -r requirements-test.txt "$HA_PACKAGE" "$JOSEPY_PACKAGE"
+      - run: ruff check custom_components tests
+      - run: ruff format --check custom_components tests
+      - run: python -m pytest -q
