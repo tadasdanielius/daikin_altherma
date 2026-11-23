@@ -12,6 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -72,8 +73,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     try:
         api = await setup_api_instance(hass, conf[CONF_HOST])
-    except (ClientError, TimeoutError, AlthermaException) as error:
-        # HA retries setup with backoff instead of leaving the entry failed
+    except (ClientError, OSError, AlthermaException) as error:
         raise ConfigEntryNotReady(f"Daikin adapter at {conf[CONF_HOST]} not reachable: {error}") from error
     hass.data[DOMAIN][entry.entry_id] = api
     coordinator = DataUpdateCoordinator(
