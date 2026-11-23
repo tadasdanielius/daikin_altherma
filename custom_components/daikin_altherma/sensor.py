@@ -1,24 +1,28 @@
 import logging
-from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
+
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
 from homeassistant.const import UnitOfEnergy, UnitOfTemperature
 from homeassistant.helpers.typing import StateType
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-)
 
 from . import DOMAIN, AlthermaAPI
+from .entity import AlthermaEntity
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up Daikin climate based on config_entry."""
-    api = hass.data[DOMAIN].get(entry.entry_id)
-    coordinator = hass.data[DOMAIN]['coordinator']
+    data = hass.data[DOMAIN][entry.entry_id]
+    api = data.api
+    coordinator = data.coordinator
     translation = {
-        'LeavingWaterTemperatureCurrent': 'Leaving Water Temperature',
-        'IndoorTemperature': 'Indoor Temperature',
-        'OutdoorTemperature': 'Outdoor Temperature'
+        "LeavingWaterTemperatureCurrent": "Leaving Water Temperature",
+        "IndoorTemperature": "Indoor Temperature",
+        "OutdoorTemperature": "Outdoor Temperature",
     }
     device = api.device
     entities = []
@@ -29,15 +33,17 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 name = translation[sensor]
             else:
                 name = sensor
-            entities.append(
-                AlthermaUnitSensor(coordinator, api, sensor, name)
-            )
+            entities.append(AlthermaUnitSensor(coordinator, api, sensor, name))
 
-    #entities = [
-    #    AlthermaUnitSensor(coordinator, api, 'LeavingWaterTemperatureCurrent', 'Leaving Water Temperature'),
-    #    AlthermaUnitSensor(coordinator, api, 'IndoorTemperature', 'Indoor Temperature'),
-    #    AlthermaUnitSensor(coordinator, api, 'OutdoorTemperature', 'Outdoor Temperature')
-    #]
+    tank = device.hot_water_tank
+    if tank is not None and api.HWT_device_info is not None:
+        if any(
+            key in tank.sensors for key in ("TankTemperature", "SensorTemperature")
+        ) or ("SensorTemperature" in tank.operations):
+            entities.append(WaterTankTemperatureSensor(coordinator, api, "current"))
+        if api.water_tank_temperature_operation[0] is not None:
+            entities.append(WaterTankTemperatureSensor(coordinator, api, "target"))
+
     try:
         device = api.device
         # Electrical -> (Heating/Cooling) -> (D, W, M)
@@ -49,7 +55,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         # Actions - heating or cooling
         # Consumption Type - Electrical or Gas
         # Contents - Daily / Weekly / Monthly
-        consumption_types = {'Electrical': 'Energy', 'Gas': 'Gas'}
+        consumption_types = {"Electrical": "Energy", "Gas": "Gas"}
         for consumption_type, ct_name in consumption_types.items():
             for unit_function, controller in device.altherma_units.items():
                 if not controller.unit.consumptions_available:
@@ -59,51 +65,86 @@ async def async_setup_entry(hass, entry, async_add_entities):
                     continue
 
                 device_info = api.space_heating_device_info
-                if unit_function == 'function/DomesticHotWaterTank':
+                if unit_function in (
+                    "function/DomesticHotWaterTank",
+                    "function/DomesticHotWater",
+                ):
                     device_info = api.HWT_device_info
 
-                unit_name = await controller.unit_name
+                unit_name = await api.async_execute(
+                    lambda controller=controller: controller.unit_name
+                )
                 actions = controller.unit.consumptions[consumption_type].actions
                 for action, details in actions.items():
                     contents = details.consumption_contents
-                    if 'Daily' in contents:
+                    if "Daily" in contents:
                         entities.append(
-                            ConsumptionSensor(coordinator, api, device_info, unit_function, unit_name, action, 'D',
-                                              '2 Hours', consumption_type=consumption_type, consumption_type_name=ct_name)
+                            ConsumptionSensor(
+                                coordinator,
+                                api,
+                                device_info,
+                                unit_function,
+                                unit_name,
+                                action,
+                                "D",
+                                "2 Hours",
+                                consumption_type=consumption_type,
+                                consumption_type_name=ct_name,
+                            )
                         )
-                    if 'Weekly' in contents:
+                    if "Weekly" in contents:
                         entities.append(
-                            ConsumptionSensor(coordinator, api, device_info, unit_function, unit_name, action, 'W', 'Day',
-                                              consumption_type=consumption_type, consumption_type_name=ct_name)
+                            ConsumptionSensor(
+                                coordinator,
+                                api,
+                                device_info,
+                                unit_function,
+                                unit_name,
+                                action,
+                                "W",
+                                "Day",
+                                consumption_type=consumption_type,
+                                consumption_type_name=ct_name,
+                            )
                         )
-                    if 'Monthly' in contents:
+                    if "Monthly" in contents:
                         entities.append(
-                            ConsumptionSensor(coordinator, api, device_info, unit_function, unit_name, action, 'M', 'Month',
-                                              consumption_type=consumption_type, consumption_type_name=ct_name)
+                            ConsumptionSensor(
+                                coordinator,
+                                api,
+                                device_info,
+                                unit_function,
+                                unit_name,
+                                action,
+                                "M",
+                                "Month",
+                                consumption_type=consumption_type,
+                                consumption_type_name=ct_name,
+                            )
                         )
 
-    except:
-        _LOGGER.warning('consumption information could not be added', exc_info=True)
+    except Exception:
+        _LOGGER.warning("consumption information could not be added", exc_info=True)
     async_add_entities(entities, update_before_add=False)
 
 
-class AlthermaUnitSensor(SensorEntity, CoordinatorEntity):
+class AlthermaUnitSensor(AlthermaEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
 
     def __init__(self, coordinator, api: AlthermaAPI, sensor: str, name: str = None):
-        super().__init__(coordinator)
+        super().__init__(coordinator, api)
         self._api = api
         self._attr_name = name if name is not None else sensor
         self._attr_device_info = api.space_heating_device_info
-        self._attr_unique_id = f"{self._api.info['serial_number']}-SpaceHeating-{sensor}"
+        self._attr_unique_id = (
+            f"{self._api.info['serial_number']}-SpaceHeating-{sensor}"
+        )
         self._sensor = sensor
 
     @property
     def native_value(self) -> StateType:
-        unit_status = self._api.status['function/SpaceHeating']
-        sensors = unit_status['sensors']
-        status = sensors[self._sensor]
+        status = self._api.space_heating_status.get("sensors", {}).get(self._sensor)
         if status is not None:
             return round(status, 2)
         else:
@@ -113,112 +154,144 @@ class AlthermaUnitSensor(SensorEntity, CoordinatorEntity):
     def device_info(self):
         return self._attr_device_info
 
-    async def async_update(self):
-        await self._api.async_update()
+
+class WaterTankTemperatureSensor(AlthermaEntity, SensorEntity):
+    """Expose water-heater attributes as graphable, read-only sensors."""
+
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+
+    def __init__(self, coordinator, api, kind):
+        super().__init__(coordinator, api)
+        self._kind = kind
+        self._attr_name = f"Water Tank {kind.capitalize()} Temperature"
+        self._attr_unique_id = (
+            f"{api.info['serial_number']}-HotWaterTank-{kind}-temperature"
+        )
+        self._attr_device_info = api.HWT_device_info
+        if kind == "current":
+            self._attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
-    def available(self):
-        return self._api.available
+    def native_value(self):
+        if self._kind == "current":
+            return self._api.water_tank_current_temperature
+        return self._api.water_tank_target_temperature
 
 
-def _find_last_value(a):
-    if a[-1] is not None:
-        return a[-1]
+def unit_display_name(name, unit_function):
+    """Keep meaningful names and replace adapter placeholders with a stable label."""
+    if isinstance(name, str):
+        name = name.strip()
+        if name and name.casefold() not in ("$null", "null", "none"):
+            return name
+    return {
+        "function/SpaceHeating": "Space Heating",
+        "function/DomesticHotWaterTank": "Hot Water Tank",
+        "function/DomesticHotWater": "Hot Water Tank",
+    }.get(unit_function, unit_function.rsplit("/", 1)[-1])
 
-    last_value = None
-    for val in a:
-        if val is not None:
-            last_value = val
-    return last_value
+
+def _find_last_value(values):
+    return next((value for value in reversed(values) if value is not None), None)
 
 
-class ConsumptionSensor(SensorEntity, CoordinatorEntity):
+class ConsumptionSensor(AlthermaEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
 
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
 
     def __init__(
-            self, coordinator,
-            api: AlthermaAPI,
-            device_info,
-            unit_function: str,
-            unit_name: str,
-            action: str,
-            content_id: str,
-            content_name: str,
-            consumption_type: str = 'Electrical',
-            consumption_type_name: str = 'Energy'):
+        self,
+        coordinator,
+        api: AlthermaAPI,
+        device_info,
+        unit_function: str,
+        unit_name: str,
+        action: str,
+        content_id: str,
+        content_name: str,
+        consumption_type: str = "Electrical",
+        consumption_type_name: str = "Energy",
+    ):
 
-        super().__init__(coordinator)
+        super().__init__(coordinator, api)
         self._api = api
         self.unit_function = unit_function
-        self.unit_name = unit_name
+        self.unit_name = unit_display_name(unit_name, unit_function)
         self.action = action
         self.content_id = content_id
         self.content_name = content_name
         self.consumption_type = consumption_type
-        self._attr_name = f'{unit_name} {content_name} {action} {consumption_type_name}'
+        self._attr_name = (
+            f"{self.unit_name} {content_name} {action} {consumption_type_name}"
+        )
         self._attr_device_info = device_info
 
         self._attr_unique_id = f"{self._api.info['serial_number']}/{unit_function}/{consumption_type}/{action}/{content_id}"
 
+    def _consumption_content(self):
+        content = (
+            self._api.status.get(self.unit_function, {})
+            .get("consumption", {})
+            .get(self.consumption_type, {})
+            .get(self.action, {})
+            .get(self.content_id, [])
+        )
+        return content if isinstance(content, list) else []
+
     @property
     def extra_state_attributes(self):
-        unit_status = self._api.status[self.unit_function]
-        consumption = unit_status['consumption'][self.consumption_type]
-        consumption_action = consumption[self.action]
-        consumption_content = consumption_action[self.content_id]
-        last_value = _find_last_value(consumption_content)
-        consumption_content_non_null = [x if x is not None else '-' for x in consumption_content]
-        attribute_keys = list(range(len(consumption_content_non_null)))
-        attributes = {}
-        if self.content_name == '2 Hours':
-            time_periods = list(range(0, 25, 2))
-            time_periods[-1] = 0
-            time_periods = ["{:02d}".format(x) for x in time_periods]
-            for idx, value in enumerate(time_periods[1:]):
-                attribute_keys[idx] = f"Yesterday {time_periods[idx]}:00 - {value}:00"
-                attribute_keys[idx + 12] = f"Today {time_periods[idx]}:00 - {value}:00"
-            attributes = dict(zip(attribute_keys, consumption_content_non_null))
-            return attributes
-
-        if self.content_name == 'Day':
-            time_periods = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-            for idx, value in enumerate(time_periods):
-                attribute_keys[idx] = f'Last {value}'
-                attribute_keys[idx + len(time_periods)] = value
-            attributes = dict(zip(attribute_keys, consumption_content_non_null))
-
-        if self.content_name == 'Month':
-            time_periods = ['January', 'February', 'March', 'April',
-                            'May', 'June', 'July', 'August', 'September',
-                            'October', 'November', 'December'
-                            ]
-        for idx, value in enumerate(time_periods):
-            attribute_keys[idx] = f'Last {value}'
-            attribute_keys[idx + len(time_periods)] = value
-        attributes = dict(zip(attribute_keys, consumption_content_non_null))
-
-        return attributes
+        values = self._consumption_content()
+        if self.content_name == "2 Hours":
+            periods = [
+                f"{hour:02d}:00 - {(hour + 2) % 24:02d}:00" for hour in range(0, 24, 2)
+            ]
+            keys = [
+                f"{day} {period}"
+                for day in ("Yesterday", "Today")
+                for period in periods
+            ]
+        else:
+            periods = (
+                [
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                    "Saturday",
+                    "Sunday",
+                ]
+                if self.content_name == "Day"
+                else [
+                    "January",
+                    "February",
+                    "March",
+                    "April",
+                    "May",
+                    "June",
+                    "July",
+                    "August",
+                    "September",
+                    "October",
+                    "November",
+                    "December",
+                ]
+            )
+            keys = [f"Last {period}" for period in periods] + periods
+        return {
+            keys[index] if index < len(keys) else str(index): value
+            if value is not None
+            else "-"
+            for index, value in enumerate(values)
+        }
 
     @property
     def native_value(self) -> StateType:
-        unit_status = self._api.status[self.unit_function]
-        consumption = unit_status['consumption'][self.consumption_type]
-        consumption_action = consumption[self.action]
-        consumption_content = consumption_action[self.content_id]
-        last_value = _find_last_value(consumption_content)
-
-        return last_value
-
-    @property
-    def available(self):
-        return self._api.available
+        return _find_last_value(self._consumption_content())
 
     @property
     def device_info(self):
         return self._attr_device_info
-
-    async def async_update(self):
-        await self._api.async_update()
